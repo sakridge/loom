@@ -8,8 +8,6 @@
 #include <map>
 #include <cuda.h>
 
-#define applog(...) (void)0
-
 //#include "salsa_kernel.h"
 //#include "miner.h"
 
@@ -25,14 +23,7 @@
 #endif
 #define __FILENAME__ ( strrchr(__FILE__, DELIMITER) != NULL ? strrchr(__FILE__, DELIMITER)+1 : __FILE__ )
 
-#define checkCudaErrors(x) \
-{ \
-    cudaGetLastError(); \
-    x; \
-    cudaError_t err = cudaGetLastError(); \
-    if (err != cudaSuccess) \
-        applog(LOG_ERR, "GPU #%d: cudaError %d (%s) calling '%s' (%s line %d)\n", device_map[thr_id], err, cudaGetErrorString(err), #x, __FILENAME__, __LINE__); \
-}
+#include "cuda_util.h"
 
 // from salsa_kernel.cu
 extern std::map<int, uint32_t *> context_idata[2];
@@ -118,7 +109,7 @@ __constant__ uint32_t keypad[12];
 __constant__ uint32_t innerpad[11];
 __constant__ uint32_t outerpad[8];
 __constant__ uint32_t finalblk[16];
-__constant__ uint32_t pdata[20];
+//__constant__ uint32_t pdata[20];
 __constant__ uint32_t midstate[8];
 
 __device__ void mycpy12(uint32_t *d, const uint32_t *s) {
@@ -281,7 +272,10 @@ __device__ void cuda_sha256_transform(uint32_t *state, const uint32_t *block)
 // HMAC SHA256 functions, modified to work with pdata and nonce directly
 //
 
-__device__ void cuda_HMAC_SHA256_80_init(uint32_t *tstate, uint32_t *ostate, uint32_t nonce)
+__device__ void cuda_HMAC_SHA256_80_init(uint32_t* pdata,
+                                         uint32_t* tstate,
+                                         uint32_t* ostate,
+                                         uint32_t nonce)
 {
     uint32_t ihash[8];
     uint32_t pad[16];
@@ -314,9 +308,10 @@ __device__ void cuda_HMAC_SHA256_80_init(uint32_t *tstate, uint32_t *ostate, uin
 }
 
 __device__ void
-cuda_PBKDF2_SHA256_80_128(const uint32_t *tstate,
-                          const uint32_t *ostate,
-                          uint32_t *output,
+cuda_PBKDF2_SHA256_80_128(const uint32_t* tstate,
+                          const uint32_t* ostate,
+                          const uint32_t* pdata,
+                          uint32_t* output,
                           uint32_t nonce)
 {
     uint32_t istate[8], ostate2[8];
@@ -363,7 +358,27 @@ cuda_PBKDF2_SHA256_80_128(const uint32_t *tstate,
     mycpy32_swab32(output+24, ostate2);    // TODO: coalescing would be desired
 }
 
-__global__ void cuda_pre_sha256(uint32_t g_inp[32], uint32_t g_tstate_ext[8], uint32_t g_ostate_ext[8], uint32_t nonce)
+__global__ void cuda_sha256_verify(uint32_t* pdata,
+                                   uint32_t* g_ostate,
+                                   int iters)
+{
+    pdata        += 16 * ((blockIdx.x * blockDim.x) + threadIdx.x);
+    g_ostate     +=  8 * ((blockIdx.x * blockDim.x) + threadIdx.x);
+
+    for (int i = 0; i < iters; i++) {
+        cuda_sha256_transform(g_ostate, pdata);
+        mycpy32(pdata, g_ostate);
+
+#pragma unroll 8
+        for (int k = 0; k < 8; k++) pdata[k + 8] = 0;
+    }
+}
+
+__global__ void cuda_pre_sha256(uint32_t* pdata,
+                                uint32_t g_inp[32],
+                                uint32_t g_tstate_ext[8],
+                                uint32_t g_ostate_ext[8],
+                                uint32_t nonce)
 {
     nonce        +=       (blockIdx.x * blockDim.x) + threadIdx.x; 
     g_inp        += 32 * ((blockIdx.x * blockDim.x) + threadIdx.x);
@@ -373,12 +388,12 @@ __global__ void cuda_pre_sha256(uint32_t g_inp[32], uint32_t g_tstate_ext[8], ui
     uint32_t tstate[8], ostate[8];
     mycpy32(tstate, midstate);
 
-    cuda_HMAC_SHA256_80_init(tstate, ostate, nonce);
+    cuda_HMAC_SHA256_80_init(pdata, tstate, ostate, nonce);
 
     mycpy32(g_tstate_ext, tstate);            // TODO: coalescing would be desired
     mycpy32(g_ostate_ext, ostate);            // TODO: coalescing would be desired
 
-    cuda_PBKDF2_SHA256_80_128(tstate, ostate, g_inp, nonce);
+    cuda_PBKDF2_SHA256_80_128(tstate, ostate, pdata, g_inp, nonce);
 }
 
 __global__ void cuda_post_sha256(uint32_t g_output[8], uint32_t g_tstate_ext[8], uint32_t g_ostate_ext[8], uint32_t g_salt_ext[32])
@@ -416,7 +431,7 @@ __global__ void cuda_post_sha256(uint32_t g_output[8], uint32_t g_tstate_ext[8],
 // callable host code to initialize constants and to call kernels
 //
 
-extern "C" void prepare_sha256(int thr_id, uint32_t host_pdata[20], uint32_t host_midstate[8])
+extern "C" void prepare_sha256(int thr_id, uint32_t host_midstate[8])
 {
     static bool init[8] = {false, false, false, false, false, false, false, false};
     if (!init[thr_id])
@@ -429,17 +444,18 @@ extern "C" void prepare_sha256(int thr_id, uint32_t host_pdata[20], uint32_t hos
         checkCudaErrors(cudaMemcpyToSymbol(finalblk, host_finalblk, sizeof(host_finalblk), 0, cudaMemcpyHostToDevice));
         init[thr_id] = true;
     }
-    checkCudaErrors(cudaMemcpyToSymbol(pdata, host_pdata, 20*sizeof(uint32_t), 0, cudaMemcpyHostToDevice));
+    //checkCudaErrors(cudaMemcpyToSymbol(pdata, host_pdata, 20*sizeof(uint32_t), 0, cudaMemcpyHostToDevice));
     checkCudaErrors(cudaMemcpyToSymbol(midstate, host_midstate, 8*sizeof(uint32_t), 0, cudaMemcpyHostToDevice));
 }
 
-extern "C" void pre_sha256(int thr_id, int stream, uint32_t nonce, int throughput)
+extern "C" void pre_sha256(int thr_id, int stream, uint32_t nonce, int throughput, uint32_t* pdata)
 {
     dim3 block(128);
     dim3 grid((throughput+127)/128);
     printf("grid: %d\n", grid.x);
 
-    cuda_pre_sha256<<<grid, block, 0, context_streams[stream][thr_id]>>>(context_idata[stream][thr_id],
+    cuda_pre_sha256<<<grid, block, 0, context_streams[stream][thr_id]>>>(pdata,
+                                                                         context_idata[stream][thr_id],
                                                                          context_tstate[stream][thr_id],
                                                                          context_ostate[stream][thr_id],
                                                                          nonce);
@@ -454,4 +470,11 @@ extern "C" void post_sha256(int thr_id, int stream, int throughput)
                                                                           context_tstate[stream][thr_id],
                                                                           context_ostate[stream][thr_id],
                                                                           context_odata[stream][thr_id]);
+}
+
+extern "C" void sha256_verify(uint32_t* pdata, uint32_t* g_ostate, int num_sha_blocks, int num_iterations)
+{
+    dim3 block(128);
+    dim3 grid(num_sha_blocks / 128);
+    cuda_sha256_verify<<<grid, block, 0, 0>>>(pdata, g_ostate, num_iterations);
 }

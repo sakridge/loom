@@ -17,20 +17,19 @@ int main(int argc, const char* argv[]) {
     int thrd_id = 0;
     int throughput = 128;
     int stream = 0;
-    //uint32_t h_pdata[20] = {0};
-    int num_blocks = 128;
-    uint32_t* h_pdata = (uint32_t*)calloc(num_blocks * 16, sizeof(uint32_t));
     uint32_t cpu_midstate[8] = {0};
 
-    if (argc != 3) {
-        printf("Usage: gpumerkle <init value> <num bytes>\n");
+    if (argc != 4) {
+        printf("Usage: gpuverify <num_blocks> <num verify loops> <input>\n");
         return 1;
     }
 
     fprintf(stderr, "starting:\n");
-    int input = strtol(argv[1], nullptr, 10);
-    int input2 = strtol(argv[2], nullptr, 10);
-    h_pdata[1] = input;
+    int num_blocks = strtol(argv[1], nullptr, 10);
+    int num_verify = strtol(argv[2], nullptr, 10);
+    int input = strtol(argv[3], nullptr, 10);
+
+    uint32_t* h_pdata = (uint32_t*)calloc(num_blocks * 16, sizeof(uint32_t));
 
     context_idata[stream][0] = NULL;
     cudaMalloc(&context_idata[stream][0], 32 * sizeof(uint32_t));
@@ -56,34 +55,33 @@ int main(int argc, const char* argv[]) {
     cudaStreamCreate(&cudaStream);
     context_streams[stream][0] = cudaStream;
 
-    memset(h_pdata, input, input2 * sizeof(uint32_t));
+    size_t input_size_bytes = num_blocks * 16 * sizeof(uint32_t);
+    memset(h_pdata, input, input_size_bytes);
     uint32_t* d_pdata = nullptr;
-    cudaMalloc(&d_pdata, 20 * sizeof(uint32_t));
-    checkCudaErrors(cudaMemcpy(d_pdata, h_pdata, 20 * sizeof(uint32_t), cudaMemcpyHostToDevice));
+    cudaMalloc(&d_pdata, input_size_bytes);
+    checkCudaErrors(cudaMemcpy(d_pdata, h_pdata, input_size_bytes, cudaMemcpyHostToDevice));
     //cudaMemset(d_pdata, strtol(argv[1], nullptr, 10), 20 * sizeof(uint32_t));
-    memset(h_pdata, 0, 20 * sizeof(uint32_t));
-    cudaMemcpy(h_pdata, d_pdata, 20 * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    memset(h_pdata, 0, input_size_bytes);
+    cudaMemcpy(h_pdata, d_pdata, input_size_bytes, cudaMemcpyDeviceToHost);
     for (int i = 0; i < 20; i++) {
         printf("%x ", h_pdata[i]);
     }
     printf("\n");
 
-    fprintf(stderr, "prepare_sha256:\n");
-    //prepare_sha256(thrd_id, cpu_midstate);
-    printf("pre_sha256\n");
-    //pre_sha256(thrd_id, stream, 0, throughput, d_pdata);
-    printf("post_sha256\n");
-    //post_sha256(thrd_id, stream, throughput);
+    printf("starting verify\n");
 
     sha256_verify(d_pdata, d_hash, num_blocks, num_verify);
 
     uint32_t* h_hash = (uint32_t*)calloc(num_blocks * HASH_SIZE, 1);
 
-    cudaMemcpy(h_hash, context_hash[stream][thrd_id], HASH_SIZE, cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_hash, d_hash, num_blocks * HASH_SIZE, cudaMemcpyDeviceToHost);
 
     cudaDeviceSynchronize();
 
     for (int i = 0; i < (num_blocks * HASH_SIZE) / sizeof(uint32_t); i++) {
+        if (i % 8 == 0) {
+            printf("\n");
+        }
         printf("%08x ", h_hash[i]);
     }
     printf("\n");
