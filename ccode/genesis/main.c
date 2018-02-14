@@ -8,13 +8,25 @@
 #endif
 
 void sha256(void *input_data, uint32_t digest[8], uint32_t num_blks);
+
 int main(int argc, char *argv[]) {
     static const uint32_t ostate[8] = {0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19};
     uint32_t state[8] = {0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19};
     uint8_t block[64] = "AnatolyYakovenko11/2/201712pmPSTAnatolyYakovenko11/2/201712pmPST";
     uint32_t *blkptr = (void*)block;
     uint64_t i=0;
+
+    if (argc != 2) {
+        printf("Usage: %s <output file>\n", argv[0]);
+        return 1;
+    }
+
     FILE *f = fopen(argv[1], "a+");
+    if (f == NULL) {
+        printf("Couldn't file open: %s\n", argv[1]);
+        return 1;
+    }
+
     struct timeval  start, now;
     if(!fseek(f, -40, SEEK_END)) {
     	assert(8 == fread(&i, 1, 8, f));
@@ -37,7 +49,7 @@ int main(int argc, char *argv[]) {
     printf("state %04x%04x%04x%04x\n", state[0], state[1], state[2], state[3]);
     printf("      %04x%04x%04x%04x\n", state[4], state[5], state[6], state[7]);
     assert(!gettimeofday(&start, 0));
-    for(i; ;++i) {
+    for(; ;++i) {
         if(__builtin_expect((i & 0xfffff) == 0, 0)) {
             double total;
             uint64_t ix = i >> 20;
