@@ -51,6 +51,15 @@ impl EncryptedWallet {
         file.write_all(&d)?;
         Ok(())
     }
+    pub fn decrypt(&self, pass: &[u8]) -> Result<Wallet> {
+        let d = aes::decrypt(&self.privkeys, pass, &[])?;
+        let pks = serde_json::from_slice(&d)?;
+        let w = Wallet {
+            pubkeys: ew.pubkeys,
+            privkeys: pks,
+        };
+        Ok(w)
+    }
 }
 
 impl Wallet {
@@ -60,18 +69,9 @@ impl Wallet {
             privkeys: Vec::new(),
         }
     }
-    pub fn add_key_pair(&mut self, pk: Keypair) {
+    pub fn add_keypair(&mut self, pk: Keypair) {
         self.privkeys.push(pk.0);
         self.pubkeys.push(pk.1);
-    }
-    pub fn decrypt(ew: EncryptedWallet, pass: &[u8]) -> Result<Wallet> {
-        let d = aes::decrypt(&ew.privkeys, pass, &[])?;
-        let pks = serde_json::from_slice(&d)?;
-        let w = Wallet {
-            pubkeys: ew.pubkeys,
-            privkeys: pks,
-        };
-        Ok(w)
     }
     pub fn encrypt(self, pass: &[u8]) -> Result<EncryptedWallet> {
         let pks = serde_json::to_vec(&self.privkeys)?;

@@ -3,6 +3,7 @@ use state;
 use gossip;
 use data;
 use serde_json;
+use reader;
 
 use std::io::Read;
 use result::Result;
@@ -109,3 +110,25 @@ pub fn run() {
         return;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use loomd;
+    use std::thread::spawn;
+
+    #[test]
+    fn transaction_test() {
+        let accounts = &"testdata/test_accounts.json";
+        let mut s = state_from_file(accounts).expect("load test accounts"),
+        let port = 24567;
+        let t = spawn(move || loomd(&mut s, port));
+        let ew = wallet::EncryptedWallet::from_file("testdata/loom.wallet");
+        let w = ew.decrypt(&"foobar")?;
+        let from = w.pubkeys[0];
+        let kp = wallet::Wallet::new_keypair();
+        let to = kp.1;
+        w.send_tx(from, to, 1000, 1);
+    }
+}
+
+
