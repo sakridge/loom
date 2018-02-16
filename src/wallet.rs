@@ -54,7 +54,7 @@ impl EncryptedWallet {
         let d = aes::decrypt(&self.privkeys, pass, &[])?;
         let pks = serde_json::from_slice(&d)?;
         let w = Wallet {
-            pubkeys: self.pubkeys,
+            pubkeys: self.pubkeys.clone(),
             privkeys: pks,
         };
         Ok(w)
@@ -108,25 +108,27 @@ impl Wallet {
         };
         let k = self.pubkeys[key];
         let mut msg = data::Message::default();
-        msg.pld.from = unsafe { transmute::<[u8; 64], [u64; 8]>(k) };
+        msg.pld.from = unsafe { transmute::<[u64; 4], [u8; 32]>(k) };
         msg.pld.fee = fee;
         msg.pld.data = data;
         msg.pld.kind = data::Kind::Transaction;
-        Self::sign((self.privkeys[key], msg.pld.from), msg);
+        Self::sign((self.privkeys[key], self.pubkeys[key]), &mut msg);
         msg
     }
     pub fn check_balance(&self, key: usize, acc: [u8; 32], fee: u64) -> data::Message {
         let data = data::MessageData {
             bal: data::CheckBalance {
                 key: acc,
+                amount: 0,
             },
         };
+        let k = self.pubkeys[key];
         let mut msg = data::Message::default();
         msg.pld.kind = data::Kind::CheckBalance;
-        msg.pld.from = self.pubkeys[key];
+        msg.pld.from = unsafe { transmute::<[u64; 4], [u8; 32]>(k) };
         msg.pld.fee = fee;
         msg.pld.data = data;
-        Self::sign((self.privkeys[key], msg.pld.from), msg);
+        Self::sign((self.privkeys[key], self.pubkeys[key]), &mut msg);
         msg
     }
 }

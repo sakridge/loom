@@ -116,21 +116,22 @@ mod tests {
     use net;
     use data;
     use wallet;
+    use result::Result;
     use std::thread::spawn;
     use std::net::UdpSocket;
 
-    fn check_balance(s: &UdpSocket, w: &wallet::Wallet, to: &[u8;32]) -> Result<u64> {
+    fn check_balance(s: &UdpSocket, w: &wallet::Wallet, to: [u8;32]) -> Result<u64> {
         let mut num = 0;
         while num < 1 {
-            let msg = w.check_balance(0, to);
+            let msg = w.check_balance(0, to, 1);
             net::write(&s, &[msg], &mut num)?;
         }
         num = 0;
         let mut msgs = [data::Message::default()];
         while num < 1 {
-            net::read(s, &msgs, &num)?;
+            net::read(s, &mut msgs, &mut num)?;
         }
-        Ok(msgs[0].pld.bal.amount);
+        Ok(msgs[0].pld.get_bal().amount)
     }
     #[test]
     fn transaction_test() {
@@ -138,12 +139,12 @@ mod tests {
         let mut s = loomd::state_from_file(accounts).expect("load test accounts");
         let port = 24567;
         let t = spawn(move || loomd::loomd(&mut s, port));
-        let ew = wallet::EncryptedWallet::from_file("testdata/loom.wallet");
-        let w = ew.decrypt(&"foobar")?;
+        let ew = wallet::EncryptedWallet::from_file("testdata/loom.wallet").expect("test wallet");
+        let w = ew.decrypt("foobar".as_bytes()).expect("decrypt");
         let from = w.pubkeys[0];
         let kp = wallet::Wallet::new_keypair();
         let to = kp.1;
-        let s = net::socket()?;
+        let s = net::socket().expect("socket");
         s.connect("127.0.0.1:24567");
         let mut num = 0;
         while num < 1 {
