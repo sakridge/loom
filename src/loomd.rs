@@ -114,6 +114,9 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use loomd;
+    use net;
+    use data;
+    use wallet;
     use std::thread::spawn;
 
     fn check_balance(s: &UdpSocket, w: &Wallet, to: &[u8;32]) -> Result<u64> {
@@ -132,9 +135,9 @@ mod tests {
     #[test]
     fn transaction_test() {
         let accounts = &"testdata/test_accounts.json";
-        let mut s = state_from_file(accounts).expect("load test accounts"),
+        let mut s = state_from_file(accounts).expect("load test accounts");
         let port = 24567;
-        let t = spawn(move || loomd(&mut s, port));
+        let t = spawn(move || loomd::loomd(&mut s, port));
         let ew = wallet::EncryptedWallet::from_file("testdata/loom.wallet");
         let w = ew.decrypt(&"foobar")?;
         let from = w.pubkeys[0];
