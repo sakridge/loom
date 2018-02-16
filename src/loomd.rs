@@ -3,7 +3,6 @@ use state;
 use gossip;
 use data;
 use serde_json;
-use reader;
 
 use std::io::Read;
 use result::Result;
@@ -118,9 +117,10 @@ mod tests {
     use data;
     use wallet;
     use std::thread::spawn;
+    use std::net::UdpSocket;
 
-    fn check_balance(s: &UdpSocket, w: &Wallet, to: &[u8;32]) -> Result<u64> {
-        num = 0;
+    fn check_balance(s: &UdpSocket, w: &wallet::Wallet, to: &[u8;32]) -> Result<u64> {
+        let mut num = 0;
         while num < 1 {
             let msg = w.check_balance(0, to);
             net::write(&s, &[msg], &mut num)?;
@@ -135,7 +135,7 @@ mod tests {
     #[test]
     fn transaction_test() {
         let accounts = &"testdata/test_accounts.json";
-        let mut s = state_from_file(accounts).expect("load test accounts");
+        let mut s = loomd::state_from_file(accounts).expect("load test accounts");
         let port = 24567;
         let t = spawn(move || loomd::loomd(&mut s, port));
         let ew = wallet::EncryptedWallet::from_file("testdata/loom.wallet");

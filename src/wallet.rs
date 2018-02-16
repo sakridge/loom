@@ -13,7 +13,6 @@ use rand::os::OsRng;
 
 use data;
 use result::Result;
-use result::Error::PubKeyNotFound;
 use serde_json;
 use aes;
 
@@ -55,7 +54,7 @@ impl EncryptedWallet {
         let d = aes::decrypt(&self.privkeys, pass, &[])?;
         let pks = serde_json::from_slice(&d)?;
         let w = Wallet {
-            pubkeys: ew.pubkeys,
+            pubkeys: self.pubkeys,
             privkeys: pks,
         };
         Ok(w)
@@ -101,18 +100,18 @@ impl Wallet {
         msg.sig = ed25519::signature(buf, &pk);
     }
     pub fn tx(&self, key: usize, to: [u8; 32], amnt: u64, fee: u64) -> data::Message {
-        let tx = data::MessageData {
+        let data = data::MessageData {
             tx: data::Transaction {
                 to: to,
                 amount: amnt,
             },
         };
         let mut msg = data::Message::default();
-        msg.pld.from = self.pubkeys[i];
+        msg.pld.from = self.pubkeys[key];
         msg.pld.fee = fee;
-        msg.pld.data = tx;
+        msg.pld.data = data;
         msg.pld.kind = data::Kind::Transaction;
-        Self::sign((self.privkeys[i], msg.pld.from), msg);
+        Self::sign((self.privkeys[key], msg.pld.from), msg);
         msg
     }
     pub fn check_balance(&self, key: usize, acc: [u8; 32], fee: u64) -> data::Message {
@@ -123,10 +122,10 @@ impl Wallet {
         };
         let mut msg = data::Message::default();
         msg.pld.kind = data::Kind::CheckBalance;
-        msg.pld.from = self.pubkeys[i];
+        msg.pld.from = self.pubkeys[key];
         msg.pld.fee = fee;
-        msg.pld.data = tx;
-        Self::sign((self.privkeys[i], msg.pld.from), msg);
+        msg.pld.data = data;
+        Self::sign((self.privkeys[key], msg.pld.from), msg);
         msg
     }
 }
