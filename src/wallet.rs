@@ -106,8 +106,9 @@ impl Wallet {
                 amount: amnt,
             },
         };
+        let k = self.pubkeys[key];
         let mut msg = data::Message::default();
-        msg.pld.from = self.pubkeys[key];
+        msg.pld.from = unsafe { transmute::<[u8; 64], [u64; 8]>(k) };
         msg.pld.fee = fee;
         msg.pld.data = data;
         msg.pld.kind = data::Kind::Transaction;
