@@ -116,6 +116,19 @@ mod tests {
     use loomd;
     use std::thread::spawn;
 
+    fn check_balance(s: &UdpSocket, w: &Wallet, to: &[u8;32]) -> Result<u64> {
+        num = 0;
+        while num < 1 {
+            let msg = w.check_balance(0, to).expect("new tx");
+            net::write(&s, &[msg], &mut num)?;
+        }
+        num = 0;
+        let mut msgs = [data::Message::default()];
+        while num < 1 {
+            net::read(s, &msgs, &num)?;
+        }
+        Ok(msgs[0].pld.balance.amount);
+    }
     #[test]
     fn transaction_test() {
         let accounts = &"testdata/test_accounts.json";
@@ -127,13 +140,17 @@ mod tests {
         let from = w.pubkeys[0];
         let kp = wallet::Wallet::new_keypair();
         let to = kp.1;
-        let msg = w.tx(0, to, 1000, 1).expect("new tx");
         let s = net::socket()?;
         s.connect("127.0.0.1:24567");
         let mut num = 0;
         while num < 1 {
+            let msg = w.tx(0, to, 1000, 1).expect("new tx");
             net::write(&s, &[msg], &mut num)?;
         }
+        let bto = check_balance(&s, &w, to);
+        assert_eq!(bto, 1000);
+        let bfrom = check_balance(&s, &w, from);
+        assert_eq!(bfrom, 1000000000 - 1001);
     }
 }
 
