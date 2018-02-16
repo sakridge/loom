@@ -100,7 +100,7 @@ impl Wallet {
         let pk = unsafe { transmute::<[u64; 8], [u8; 64]>(kp.0) };
         msg.sig = ed25519::signature(buf, &pk);
     }
-    pub fn tx(&self, key: usize, to: [u8; 32], amnt: u64, fee: u64) -> Result<data::Message> {
+    pub fn tx(&self, key: usize, to: [u8; 32], amnt: u64, fee: u64) -> data::Message {
         let tx = data::MessageData {
             tx: data::Transaction {
                 to: to,
@@ -113,6 +113,20 @@ impl Wallet {
         msg.pld.data = tx;
         msg.pld.kind = data::Kind::Transaction;
         Self::sign((self.privkeys[i], msg.pld.from), msg);
-        Ok(msg)
+        msg
+    }
+    pub fn check_balance(&self, key: usize, acc: [u8; 32], fee: u64) -> data::Message {
+        let data = data::MessageData {
+            bal: data::CheckBalance {
+                key: acc,
+            },
+        };
+        let mut msg = data::Message::default();
+        msg.pld.kind = data::Kind::CheckBalance;
+        msg.pld.from = self.pubkeys[i];
+        msg.pld.fee = fee;
+        msg.pld.data = tx;
+        Self::sign((self.privkeys[i], msg.pld.from), msg);
+        msg
     }
 }

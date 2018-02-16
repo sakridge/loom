@@ -40,11 +40,20 @@ pub struct GetLedger {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
+pub struct CheckBalance {
+    pub key: [u8; 32],
+    pub amount: u64,
+}
+
+
+#[derive(Copy, Clone)]
+#[repr(C)]
 pub union MessageData {
     pub tx: Transaction,
     pub poh: POH,
     pub sub: Subscriber,
     pub get: GetLedger,
+    pub bal: CheckBalance,
 }
 
 impl Default for MessageData {
@@ -63,6 +72,7 @@ pub enum Kind {
     Signature,
     Subscribe,
     GetLedger,
+    CheckBalance,
 }
 
 impl Default for Kind {
@@ -135,6 +145,10 @@ impl Payload {
         assert_eq!(self.kind, Kind::GetLedger);
         unsafe { &self.data.get }
     }
+    pub fn get_bal(&self) -> &CheckBalance {
+        assert_eq!(self.kind, Kind::CheckBalance);
+        unsafe { &self.data.bal }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -146,18 +160,9 @@ pub struct Message {
 
 impl Default for Message {
     fn default() -> Message {
-        #[cfg_attr(rustfmt, rustfmt_skip)]
-        let sig = [0,0,0,0, 0,0,0,0
-                  ,0,0,0,0, 0,0,0,0
-                  ,0,0,0,0, 0,0,0,0
-                  ,0,0,0,0, 0,0,0,0
-                  ,0,0,0,0, 0,0,0,0
-                  ,0,0,0,0, 0,0,0,0
-                  ,0,0,0,0, 0,0,0,0
-                  ,0,0,0,0, 0,0,0,0];
         Message {
             pld: Payload::default(),
-            sig: sig,
+            sig: [0u8; 64],
         }
     }
 }
@@ -182,7 +187,6 @@ impl Key for [u8; 32] {
                  ((self[7] as u64) << ((7 - 7) * 8)) ;
         st as usize
     }
-
     fn unused(&self) -> bool {
         *self == [0u8; 32]
     }

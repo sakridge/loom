@@ -119,7 +119,7 @@ mod tests {
     fn check_balance(s: &UdpSocket, w: &Wallet, to: &[u8;32]) -> Result<u64> {
         num = 0;
         while num < 1 {
-            let msg = w.check_balance(0, to).expect("new tx");
+            let msg = w.check_balance(0, to);
             net::write(&s, &[msg], &mut num)?;
         }
         num = 0;
@@ -127,7 +127,7 @@ mod tests {
         while num < 1 {
             net::read(s, &msgs, &num)?;
         }
-        Ok(msgs[0].pld.balance.amount);
+        Ok(msgs[0].pld.bal.amount);
     }
     #[test]
     fn transaction_test() {
@@ -147,9 +147,9 @@ mod tests {
             let msg = w.tx(0, to, 1000, 1).expect("new tx");
             net::write(&s, &[msg], &mut num)?;
         }
-        let bto = check_balance(&s, &w, to);
+        let bto = check_balance(&s, &w, to).expect("check bal to");
         assert_eq!(bto, 1000);
-        let bfrom = check_balance(&s, &w, from);
+        let bfrom = check_balance(&s, &w, from).expect("check bal from");
         assert_eq!(bfrom, 1000000000 - 1001);
     }
 }
