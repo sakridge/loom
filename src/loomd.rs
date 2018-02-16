@@ -127,7 +127,13 @@ mod tests {
         let from = w.pubkeys[0];
         let kp = wallet::Wallet::new_keypair();
         let to = kp.1;
-        w.send_tx(from, to, 1000, 1);
+        let msg = w.tx(0, to, 1000, 1).expect("new tx");
+        let s = net::socket()?;
+        s.connect("127.0.0.1:24567");
+        let mut num = 0;
+        while num < 1 {
+            net::write(&s, &[msg], &mut num)?;
+        }
     }
 }
 

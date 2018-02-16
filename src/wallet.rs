@@ -92,20 +92,6 @@ impl Wallet {
         let bp = unsafe { transmute::<[u8; 32], [u64; 4]>(b) };
         (ap, bp)
     }
-
-    pub fn sign_msg(&self, msg: &mut data::Message) -> Result<()> {
-        assert!(cfg!(target_endian = "little"));
-        let ap = unsafe { transmute::<[u8; 32], [u64; 4]>(msg.pld.from) };
-        for (i, k) in self.pubkeys.iter().enumerate() {
-            if *k == ap {
-                let pk = self.privkeys[i];
-                Self::sign((pk, *k), msg);
-                return Ok(());
-            }
-        }
-        return Err(PubKeyNotFound);
-    }
-
     pub fn sign(kp: Keypair, msg: &mut data::Message) {
         let sz = size_of::<data::Payload>();
         let p = &msg.pld as *const data::Payload;
@@ -113,5 +99,20 @@ impl Wallet {
         let buf = unsafe { transmute(from_raw_parts(p as *const u8, sz)) };
         let pk = unsafe { transmute::<[u64; 8], [u8; 64]>(kp.0) };
         msg.sig = ed25519::signature(buf, &pk);
+    }
+    pub fn tx(&self, key: usize, to: [u8; 32], amnt: u64, fee: u64) -> Result<data::Message> {
+        let tx = data::MessageData {
+            tx: data::Transaction {
+                to: to,
+                amount: amnt,
+            },
+        };
+        let mut msg = data::Message::default();
+        msg.pld.from = self.pubkeys[i];
+        msg.pld.fee = fee;
+        msg.pld.data = tx;
+        msg.pld.kind = data::Kind::Transaction;
+        Self::sign((self.privkeys[i], msg.pld.from), msg);
+        Ok(msg)
     }
 }
