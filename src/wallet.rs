@@ -13,6 +13,7 @@ use rand::os::OsRng;
 
 use data;
 use result::Result;
+use result::Error;
 use serde_json;
 use aes;
 
@@ -98,6 +99,15 @@ impl Wallet {
         let buf = unsafe { transmute(from_raw_parts(p as *const u8, sz)) };
         let pk = unsafe { transmute::<[u64; 8], [u8; 64]>(kp.0) };
         msg.sig = ed25519::signature(buf, &pk);
+    }
+    pub fn find(&self, from: [u8;32]) -> Result<usize> {
+        let fk = unsafe { transmute::<[u8; 32], [u64; 4]>(from)};
+        for (i,k) in self.pubkeys.iter().enumerate() {
+            if *k == fk {
+                return Ok(i);
+            }
+        }
+        Err(Error::PubKeyNotFound)
     }
     pub fn tx(&self, key: usize, to: [u8; 32], amnt: u64, fee: u64) -> data::Message {
         let data = data::MessageData {

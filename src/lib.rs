@@ -10,7 +10,7 @@ pub mod wallet;
 pub mod aes;
 pub mod ledger;
 pub mod reader;
-pub mod loomd;
+pub mod daemon;
 extern crate core;
 extern crate crypto;
 extern crate getopts;
