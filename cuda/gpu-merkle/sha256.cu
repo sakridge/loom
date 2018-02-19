@@ -365,12 +365,11 @@ __global__ void cuda_sha256_verify(uint32_t* pdata,
     pdata        += 16 * ((blockIdx.x * blockDim.x) + threadIdx.x);
     g_ostate     +=  8 * ((blockIdx.x * blockDim.x) + threadIdx.x);
 
+    cuda_sha256_init(g_ostate);
     for (int i = 0; i < iters; i++) {
         cuda_sha256_transform(g_ostate, pdata);
         mycpy32(pdata, g_ostate);
-
-#pragma unroll 8
-        for (int k = 0; k < 8; k++) pdata[k + 8] = 0;
+        mycpy32(&pdata[8], g_ostate);
     }
 }
 
@@ -472,9 +471,14 @@ extern "C" void post_sha256(int thr_id, int stream, int throughput)
                                                                           context_odata[stream][thr_id]);
 }
 
+extern "C" void sha256_merkle(uint32_t* pdata, uint32_t* g_ostate, int* levels, int num_levels)
+{
+}
+
 extern "C" void sha256_verify(uint32_t* pdata, uint32_t* g_ostate, int num_sha_blocks, int num_iterations)
 {
-    dim3 block(128);
-    dim3 grid(num_sha_blocks / 128);
+    dim3 block(std::min(128, num_sha_blocks));
+    dim3 grid(std::max(1, num_sha_blocks / 128));
+    printf("block: %d grid: %d\n", block.x, grid.x);
     cuda_sha256_verify<<<grid, block, 0, 0>>>(pdata, g_ostate, num_iterations);
 }

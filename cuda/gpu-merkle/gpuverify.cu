@@ -29,7 +29,7 @@ int main(int argc, const char* argv[]) {
     int num_verify = strtol(argv[2], nullptr, 10);
     int input = strtol(argv[3], nullptr, 10);
 
-    uint32_t* h_pdata = (uint32_t*)calloc(num_blocks * 16, sizeof(uint32_t));
+    //uint32_t* h_pdata = (uint32_t*)calloc(num_blocks * 16, sizeof(uint32_t));
 
     context_idata[stream][0] = NULL;
     cudaMalloc(&context_idata[stream][0], 32 * sizeof(uint32_t));
@@ -55,28 +55,31 @@ int main(int argc, const char* argv[]) {
     cudaStreamCreate(&cudaStream);
     context_streams[stream][0] = cudaStream;
 
+    uint8_t h_pdata[65] = "AnatolyYakovenko11/2/201712pmPSTAnatolyYakovenko11/2/201712pmPST";
+
     size_t input_size_bytes = num_blocks * 16 * sizeof(uint32_t);
-    memset(h_pdata, input, input_size_bytes);
+    //memset(h_pdata, input, input_size_bytes);
     uint32_t* d_pdata = nullptr;
     cudaMalloc(&d_pdata, input_size_bytes);
     checkCudaErrors(cudaMemcpy(d_pdata, h_pdata, input_size_bytes, cudaMemcpyHostToDevice));
     //cudaMemset(d_pdata, strtol(argv[1], nullptr, 10), 20 * sizeof(uint32_t));
     memset(h_pdata, 0, input_size_bytes);
     cudaMemcpy(h_pdata, d_pdata, input_size_bytes, cudaMemcpyDeviceToHost);
-    for (int i = 0; i < 20; i++) {
-        printf("%x ", h_pdata[i]);
+    for (int i = 0; i < 64/4; i++) {
+        printf("%x ", ((uint32_t*)h_pdata)[i]);
     }
     printf("\n");
 
     printf("starting verify\n");
 
-    sha256_verify(d_pdata, d_hash, num_blocks, num_verify);
-
     uint32_t* h_hash = (uint32_t*)calloc(num_blocks * HASH_SIZE, 1);
 
-    cudaMemcpy(h_hash, d_hash, num_blocks * HASH_SIZE, cudaMemcpyDeviceToHost);
+    prepare_sha256(thrd_id, cpu_midstate);
+    sha256_verify(d_pdata, d_hash, num_blocks, num_verify);
 
     cudaDeviceSynchronize();
+
+    cudaMemcpy(h_hash, d_hash, num_blocks * HASH_SIZE, cudaMemcpyDeviceToHost);
 
     for (int i = 0; i < (num_blocks * HASH_SIZE) / sizeof(uint32_t); i++) {
         if (i % 8 == 0) {

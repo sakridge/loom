@@ -68,14 +68,9 @@ int main(int argc, const char* argv[]) {
     }
     printf("\n");
 
-    fprintf(stderr, "prepare_sha256:\n");
-    //prepare_sha256(thrd_id, cpu_midstate);
-    printf("pre_sha256\n");
-    //pre_sha256(thrd_id, stream, 0, throughput, d_pdata);
-    printf("post_sha256\n");
-    //post_sha256(thrd_id, stream, throughput);
-
-    sha256_verify(d_pdata, d_hash, num_blocks, num_verify);
+    int num_levels = 2;
+    int levels[] = {2, 2};
+    sha256_merkle(d_pdata, d_hash, levels, num_levels);
 
     uint32_t* h_hash = (uint32_t*)calloc(num_blocks * HASH_SIZE, 1);
 
