@@ -8,7 +8,6 @@ use std::env;
 use std::string::String;
 use data_encoding::BASE32HEX_NOPAD;
 use loom::wallet::{EncryptedWallet, Wallet};
-use loom::data;
 use loom::net;
 use loom::result::Result;
 

@@ -4,8 +4,10 @@ use gossip;
 use data;
 use serde_json;
 
+use std::sync::{Arc, Mutex};
 use std::io::Read;
 use result::Result;
+use reader::Reader;
 use std::fs::File;
 use std::mem::transmute;
 use getopts::Options;
@@ -17,7 +19,8 @@ fn print_usage(program: &str, opts: Options) {
     print!("{}", opts.usage(&brief));
 }
 
-fn loomd(s: &mut state::State, port: u16) {
+fn loomd(exit: Arc<Mutex<bool>>, s: &mut state::State, port: u16) {
+    let reader = Reader::new(12001).expect("reader");
     loop {
         let mut g = gossip::Gossip::new(1024);
         let mut m = vec![data::Message::default(); 1024];
@@ -54,9 +57,7 @@ struct TestAccount {
     pub pubkey: [u64; 4],
     pub balance: u32,
 }
-fn from_pk(d: [u64;4]) -> [u8; 32] {
-    unsafe { transmute::<[u64; 4], [u8; 32]>(d) }
-}
+
 fn state_from_file(f: &str) -> Result<state::State> {
     let mut file = File::open(f)?;
     let mut e = Vec::new();
@@ -121,7 +122,8 @@ mod tests {
     use result::Result;
     use std::thread::spawn;
     use std::net::UdpSocket;
-
+    use std::mem::transmute;
+ 
     fn check_balance(s: &UdpSocket, w: &wallet::Wallet, to: [u8;32]) -> Result<u64> {
         let mut num = 0;
         while num < 1 {
@@ -135,28 +137,34 @@ mod tests {
         }
         Ok(msgs[0].pld.get_bal().amount)
     }
+    fn from_pk(d: [u64;4]) -> [u8; 32] {
+        unsafe { transmute::<[u64; 4], [u8; 32]>(d) }
+    }
     #[test]
     fn transaction_test() {
         let accounts = &"testdata/test_accounts.json";
         let mut s = daemon::state_from_file(accounts).expect("load test accounts");
         let port = 24567;
-        let t = spawn(move || daemon::loomd(&mut s, port));
+        let exit = Arc::new(Mutex::new(false));
+        let c_exit = exit.clone();
+        let t = spawn(move || daemon::loomd(c_exit, &mut s, port));
         let ew = wallet::EncryptedWallet::from_file("testdata/loom.wallet").expect("test wallet");
         let w = ew.decrypt("foobar".as_bytes()).expect("decrypt");
-        let from = w.pubkeys[0];
+        let from = from_pk(w.pubkeys[0]);
         let kp = wallet::Wallet::new_keypair();
-        let to = kp.1;
+        let to = from_pk(kp.1);
         let s = net::socket().expect("socket");
-        s.connect("127.0.0.1:24567");
+        s.connect("127.0.0.1:24567").expect("connect");
         let mut num = 0;
         while num < 1 {
-            let msg = w.tx(0, to, 1000, 1).expect("new tx");
-            net::write(&s, &[msg], &mut num)?;
+            let msg = w.tx(0, to, 1000, 1);
+            net::write(&s, &[msg], &mut num).expect("write message");
         }
         let bto = check_balance(&s, &w, to).expect("check bal to");
         assert_eq!(bto, 1000);
         let bfrom = check_balance(&s, &w, from).expect("check bal from");
         assert_eq!(bfrom, 1000000000 - 1001);
+        t.join().expect("join");
     }
 }
 
