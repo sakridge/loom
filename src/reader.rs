@@ -7,29 +7,7 @@ use std::time::Duration;
 use data;
 use net;
 
-pub struct Messages {
-    msgs: Vec<data::Message>,
-    data: Vec<(usize, SocketAddr)>,
-}
-
-impl Messages {
-    fn new() -> Messages {
-        Messages {
-            msgs: vec![data::Message::default(); 1024],
-            data: vec![Self::def_data(); 1024],
-        }
-    }
-    fn def_data() -> (usize, SocketAddr) {
-        let ipv4 = Ipv4Addr::new(0, 0, 0, 0);
-        let addr = SocketAddr::new(IpAddr::V4(ipv4), 0);
-        (0, addr)
-    }
-}
-
-pub type SharedMessages = Arc<Messages>;
-
 struct Data {
-    pending: VecDeque<SharedMessages>,
     gc: Vec<SharedMessages>,
 }
 pub struct Reader {
@@ -40,7 +18,6 @@ impl Reader {
     pub fn new(port: u16) -> Result<Reader> {
         let d = Data {
             gc: Vec::new(),
-            pending: VecDeque::new(),
         };
 
         let ipv4 = Ipv4Addr::new(0, 0, 0, 0);
@@ -54,65 +31,48 @@ impl Reader {
         };
         return Ok(rv);
     }
-    pub fn next(&self) -> Result<SharedMessages> {
-        let mut d = self.lock.lock().expect("lock");
-        let o = d.pending.pop_front();
-        return from_option(o);
-    }
     pub fn recycle(&self, m: SharedMessages) {
         let mut d = self.lock.lock().expect("lock");
         d.gc.push(m);
     }
-    pub fn run(&self, exit: Arc<Mutex<bool>>) -> Result<()> {
-        loop {
-            let mut m = self.allocate();
-            {
-                let v = Arc::get_mut(&mut m).expect("only ref");
-                v.msgs.resize(1024, data::Message::default());
-                v.data.resize(1024, Messages::def_data());
-                let mut total = 0usize;
-                while total == 0usize {
-                    trace!("reading");
-                    let r = net::read_from(&self.sock, &mut v.msgs, &mut v.data);
-                    trace!("reading done");
-                    match r {
-                        Err(IO(e)) => {
-                            debug!("failed with IO error {:?}", e);
-                        }
-                        Err(e) => {
-                            debug!("read failed error {:?}", e);
-                        }
-                        Ok(0) => {
-                            trace!("read returned 0");
-                        }
-                        Ok(num) => {
-                            let s: usize = v.data.iter_mut().map(|v| v.0).sum();
-                            total += s;
-                            v.msgs.resize(s, data::Message::default());
-                            v.data.resize(num, Messages::def_data());
-                        }
-                    }
-                    let e = exit.lock().expect("lock");
-                    if *e == true {
-                        trace!("exiting");
-                        return Ok(());
-                    }
+    pub fn run(&self) -> otp::Reply {
+        let mut m = self.allocate();
+        let mut total = 0usize;
+        {
+            let v = Arc::get_mut(&mut m).expect("only ref");
+            v.msgs.resize(1024, data::Message::default());
+            v.data.resize(1024, Messages::def_data());
+            trace!("reading");
+            let r = net::read_from(&self.sock, &mut v.msgs, &mut v.data);
+            trace!("reading done");
+            match r {
+                Err(IO(e)) => {
+                    debug!("failed with IO error {:?}", e);
+                }
+                Err(e) => {
+                    debug!("read failed error {:?}", e);
+                }
+                Ok(0) => {
+                    trace!("read returned 0");
+                }
+                Ok(num) => {
+                    let s: usize = v.data.iter_mut().map(|v| v.0).sum();
+                    total += s;
+                    v.msgs.resize(s, data::Message::default());
+                    v.data.resize(num, Messages::def_data());
                 }
             }
-            self.enqueue(m);
-            self.notify();
         }
-    }
-    fn notify(&self) {
-        //TODO(anatoly),  maybe this will work.  https://doc.rust-lang.org/std/sync/struct.Condvar.html#method.notify_all
+        if total > 0 {
+            return otp::Reply::Send(otp::State, otp::SharedMessages(m));
+        } else {
+            self.recycle(m);
+            return otp::Reply::Noop;
+        }
     }
     fn allocate(&self) -> SharedMessages {
         let mut s = self.lock.lock().expect("lock");
         s.gc.pop().unwrap_or_else(|| Arc::new(Messages::new()))
-    }
-    fn enqueue(&self, m: SharedMessages) {
-        let mut s = self.lock.lock().expect("lock");
-        s.pending.push_back(m);
     }
 }
 

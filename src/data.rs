@@ -2,6 +2,8 @@
 //!
 //! TBD a lightweight serialization format.
 
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
+use std::sync::Arc;
 use hasht::{HashT, Key, Val};
 #[derive(Default, Copy, Clone)]
 #[repr(C)]
@@ -198,3 +200,25 @@ impl Val<[u8; 32]> for Account {
     }
 }
 pub type AccountT = HashT<[u8; 32], Account>;
+
+pub struct Messages {
+    msgs: Vec<data::Message>,
+    data: Vec<(usize, SocketAddr)>,
+}
+
+impl Messages {
+    fn new() -> Messages {
+        Messages {
+            msgs: vec![data::Message::default(); 1024],
+            data: vec![Self::def_data(); 1024],
+        }
+    }
+    fn def_data() -> (usize, SocketAddr) {
+        let ipv4 = Ipv4Addr::new(0, 0, 0, 0);
+        let addr = SocketAddr::new(IpAddr::V4(ipv4), 0);
+        (0, addr)
+    }
+}
+
+pub type SharedMessages = Arc<Messages>;
+

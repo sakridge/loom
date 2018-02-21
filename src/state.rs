@@ -3,6 +3,9 @@
 use data;
 use result::Result;
 use hasht::Key;
+use reader;
+use std::sync::mpsc::channel;
+use std::time::Duration;
 
 #[repr(C)]
 pub struct State {
@@ -49,6 +52,35 @@ impl State {
         let from = unsafe { ptr.offset(sf as isize).as_mut().unwrap() };
         let to = unsafe { ptr.offset(st as isize).as_mut().unwrap() };
         (from, to)
+    }
+    fn run(otp: &OTP, d: otp::Data) -> otp::Resp {
+        match d {
+            SharedMessages(d) => {
+                let v = Arc::get_mut(&mut msgs).expect("msgs only ref");
+                self.execute(&mut v.msgs);
+                return otp::Resp::Send(otp::Port::Gossip, d);
+            }
+            _ => (),
+        }
+        return otp::Resp::Noop;
+    }
+    fn run(&mut self, exit: Arc<Mutex<bool>>, recv: Receiver<reader::SharedMessages>, sender: Sender<reader::SharedMessages>) -> Result<()> {
+        loop {
+            let timer = Duration::new(1, 0);
+            let msgs = recv.recv_timeout(timer)
+                      .unwrap_or(reader::empty_msgs());
+            let mut total = 0;
+            {
+            }
+            if total > 0 {
+                sender.send(msgs);
+            }
+            let e = exit.lock().expect("lock");
+            if *e == true {
+                trace!("state thread exiting");
+                return Ok(());
+            }
+        }
     }
 
     fn exec(state: &mut [data::Account], m: &mut data::Message, num_new: &mut usize) -> Result<()> {

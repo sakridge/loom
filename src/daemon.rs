@@ -20,21 +20,28 @@ fn print_usage(program: &str, opts: Options) {
 }
 
 fn loomd(exit: Arc<Mutex<bool>>, s: &mut state::State, port: u16) {
-    let reader = Reader::new(12001).expect("reader");
+    let (rsend, rrecv) = channel();
+    let r_exit = exit.clone();
+    let reader = Arc::new(Reader::new(12001).expect("reader"));
+    let c_reader = reader.clone();
+    let r = spawn(move || c_reader.run(c_exit, rsend));
+
+    Arc::new(s);
+
+    let (ssend, srecv) = channel();
+    let s_exit = exit.clone();
+
     loop {
-        let mut g = gossip::Gossip::new(1024);
-        let mut m = vec![data::Message::default(); 1024];
-        let srv = net::bindall(port).expect("bind server port");
-        let mut num = 0;
-        let start = num;
-        net::read(&srv, &mut m[start..], &mut num).expect("read");
-        let end = num;
-        s.execute(&mut m[start..end]).expect("state");
-        g.execute(&mut m[start..end]).expect("gossip");
-        for s in &g.subs {
-            net::sendtov4(&srv, &m[start..end], &mut num, s.addr, s.port).expect("send");
+        let mgs = rrecv.recv().unwrap();
+        s.execute(&mut msgs).expect("state");
+        ssend.send(msgs).expect("state sending msgs");
+        let e = s_exit.lock().expect("lock");
+        if *e == true {
+            trace!("exiting");
+            return Ok(());
         }
     }
+
 }
 
 fn spoold(s: &mut state::State, loom: &str) {
