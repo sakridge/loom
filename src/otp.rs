@@ -1,3 +1,5 @@
+//! see test for documentation
+
 use std::sync::{RwLock, Arc, Mutex};
 use std::sync::mpsc::{Sender, Receiver, channel};
 use std::thread::{JoinHandle, spawn};
@@ -6,7 +8,7 @@ use data;
 use result::Result;
 use result::Error;
 
-enum Port {
+pub enum Port {
     Reader,
     State,
     Max,
@@ -22,21 +24,18 @@ impl Port {
     }
 }
 
-#[derive(Clone)]
-enum Data {
+pub enum Data {
     Signal,
     SharedMessages(data::SharedMessages),
 }
 
-#[derive(Clone)]
 struct Locked {
     ports: Vec<Sender<Data>>,
     readers: Vec<Arc<Mutex<Receiver<Data>>>>,
     threads: Vec<Arc<Option<JoinHandle<Result<()>>>>>,
 }
 
-#[derive(Clone)]
-struct OTP {
+pub struct OTP {
     lock: Arc<RwLock<Locked>>,
     exit: Arc<Mutex<bool>>,
 }
@@ -92,8 +91,8 @@ impl OTP {
         });
         w.threads[pz] = Arc::new(Some(j));
     }
-    pub fn send(ports: Vec<Sender<Data>>, to: Port, m: Data) {
-        ports[to.to_usize()].send(m);
+    pub fn send(ports: Vec<Sender<Data>>, to: Port, m: Data) -> Result<()> {
+        ports[to.to_usize()].send(m).or_else(|_| Err(Error::SendError))
     }
     pub fn shutdown(&mut self) -> Result<()> {
         {
@@ -116,3 +115,11 @@ impl OTP {
         return Ok(());
     }
 }
+
+#[cfg(test)]
+fn test_init() {
+    let mut o = OTP::new();
+    assert_eq!(Ok(()), o.shutdown());
+}
+
+

@@ -10,6 +10,7 @@ pub enum Error {
     JSON(serde_json::Error),
     AES(crypto::symmetriccipher::SymmetricCipherError),
     AddrParse(std::net::AddrParseError),
+    SendError,
     JoinError,
     NoneError,
     NoSpace,
