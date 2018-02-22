@@ -11,7 +11,6 @@ use result::Error;
 pub enum Port {
     Reader,
     State,
-    Max,
 }
 
 impl Port {
@@ -19,7 +18,6 @@ impl Port {
         match self {
             Port::Reader => 0,
             Port::State => 1,
-            Port::Max => 2,
         }
     }
 }
@@ -131,6 +129,7 @@ mod test {
     use std::sync::{Arc, Mutex};
     use std::thread::sleep;
     use std::time::Duration;
+    use result::Error;
 
     #[test]
     fn test_init() {
@@ -148,6 +147,15 @@ mod test {
                 *c_val.lock().unwrap() = true;
                 Ok(())
             }));
+
+        assert!(o.source(otp::Port::Reader, move |_ports| {
+                Ok(())
+            }).is_err());
+
+        assert!(o.listen(otp::Port::Reader, move |_ports, _data| {
+                Ok(())
+            }).is_err());
+ 
         sleep(Duration::new(0,500000));
         assert_eq!(*val.lock().unwrap(), true);
         assert_eq!(Ok(()), o.shutdown());
