@@ -157,8 +157,8 @@ mod test {
             }).is_err());
  
         sleep(Duration::new(0,500000));
-        assert_eq!(*val.lock().unwrap(), true);
         assert_eq!(Ok(()), o.shutdown());
+        assert_eq!(*val.lock().unwrap(), true);
     }
     #[test]
     fn test_listen() {
@@ -178,8 +178,8 @@ mod test {
                 Ok(())
             }));
         sleep(Duration::new(0,500000));
-        assert_eq!(*val.lock().unwrap(), true);
         assert_eq!(Ok(()), o.shutdown());
+        assert_eq!(*val.lock().unwrap(), true);
     }
 
 }
