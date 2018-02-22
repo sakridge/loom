@@ -52,7 +52,7 @@ impl OTP {
         OTP {lock: Arc::new(RwLock::new(locked)), exit: exit}
     }
     pub fn source<F>(&self, port: Port, func: F)  -> Result<()>
-        where F: Send + 'static + Fn(Vec<Sender<Data>>) -> Result<()>
+        where F: Send + 'static + Fn(&Vec<Sender<Data>>) -> Result<()>
     {
         let mut w = self.lock.write().unwrap();
         let pz = port.to_usize();
@@ -62,7 +62,7 @@ impl OTP {
         let c_ports = w.ports.clone();
         let c_exit = self.exit.clone();
         let j = spawn(move|| loop {
-            match func(c_ports.clone()) {
+            match func(&c_ports) {
                 Ok(()) => (),
                 e => return e
             }
@@ -74,7 +74,7 @@ impl OTP {
         return Ok(());
     }
     pub fn listen<F>(&mut self, port: Port, func: F) -> Result<()>
-        where F: Send + 'static + Fn(Vec<Sender<Data>>, Data) -> Result<()>
+        where F: Send + 'static + Fn(&Vec<Sender<Data>>, Data) -> Result<()>
     {
         let mut w = self.lock.write().unwrap();
         let pz = port.to_usize();
@@ -84,21 +84,23 @@ impl OTP {
         let recv_lock = w.readers[pz].clone();
         let c_ports = w.ports.clone();
         let c_exit = self.exit.clone();
-        let j: JoinHandle<Result<()>> = spawn(move|| loop {
-            let recv = recv_lock.lock().unwrap();
-            let timer = Duration::new(0, 500000);
-            match recv.recv_timeout(timer) {
-                Ok(val) => func(c_ports.clone(), val)?,
-                _ => (),
-            }
-            if *c_exit.lock().unwrap() == true {
-                return Ok(());
+        let j: JoinHandle<Result<()>> = spawn(move|| {
+            loop {
+                let recv = recv_lock.lock().unwrap();
+                let timer = Duration::new(0, 500000);
+                match recv.recv_timeout(timer) {
+                    Ok(val) => func(&c_ports, val)?,
+                    _ => (),
+                }
+                if *c_exit.lock().unwrap() == true {
+                    return Ok(());
+                }
             }
         });
         w.threads[pz] = Arc::new(Some(j));
         return Ok(());
     }
-    pub fn send(ports: Vec<Sender<Data>>, to: Port, m: Data) -> Result<()> {
+    pub fn send(ports: &Vec<Sender<Data>>, to: Port, m: Data) -> Result<()> {
         ports[to.to_usize()].send(m).or_else(|_| Err(Error::SendError))
     }
     pub fn shutdown(&mut self) -> Result<()> {
@@ -109,14 +111,9 @@ impl OTP {
             let r = self.lock.read().unwrap();
             for t in r.threads.iter() {
                 match Arc::try_unwrap((*t).clone()) {
-                    Ok(Some(j)) => 
-                        match j.join() {
-                            Ok(Ok(())) => (),
-                            Err(_) => return Err(Error::JoinError),
-                            Ok(e) => return e,
-                        },
+                    Ok(Some(j)) => j.join()??, 
                     _ => (),
-                }
+                };
             }
         }
         return Ok(());
@@ -129,7 +126,6 @@ mod test {
     use std::sync::{Arc, Mutex};
     use std::thread::sleep;
     use std::time::Duration;
-    use result::Error;
 
     #[test]
     fn test_init() {
@@ -156,7 +152,7 @@ mod test {
                 Ok(())
             }).is_err());
  
-        sleep(Duration::new(0,500000));
+        sleep(Duration::new(1,500000));
         assert_eq!(Ok(()), o.shutdown());
         assert_eq!(*val.lock().unwrap(), true);
     }
@@ -177,7 +173,7 @@ mod test {
                 }
                 Ok(())
             }));
-        sleep(Duration::new(0,500000));
+        sleep(Duration::new(1,500000));
         assert_eq!(Ok(()), o.shutdown());
         assert_eq!(*val.lock().unwrap(), true);
     }

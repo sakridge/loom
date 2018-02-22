@@ -3,6 +3,7 @@ use serde_json;
 use core;
 use crypto;
 use crypto::symmetriccipher::SymmetricCipherError;
+use std::any::Any;
 
 #[derive(Debug)]
 pub enum Error {
@@ -10,9 +11,9 @@ pub enum Error {
     JSON(serde_json::Error),
     AES(crypto::symmetriccipher::SymmetricCipherError),
     AddrParse(std::net::AddrParseError),
+    JoinError(Box<Any + Send + 'static>),
     SendError,
     OTPError,
-    JoinError,
     NoneError,
     NoSpace,
     ToLarge,
@@ -34,6 +35,13 @@ pub type Result<T> = core::result::Result<T, Error>;
 pub fn from_option<T>(r: Option<T>) -> Result<T> {
     r.ok_or(Error::NoneError)
 }
+
+impl core::convert::From<Box<Any + Send + 'static>> for Error {
+    fn from(e: Box<Any + Send + 'static>) -> Error {
+        Error::JoinError(e)
+    }
+}
+
 impl core::convert::From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Error {
         Error::IO(e)
