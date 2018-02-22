@@ -70,7 +70,7 @@ impl OTP {
         });
         w.threads[port.to_usize()] = Arc::new(Some(j));
     }
-    pub fn listener<F>(&mut self, port: Port, func: F)
+    pub fn listen<F>(&mut self, port: Port, func: F)
         where F: Send + 'static + Fn(Vec<Sender<Data>>, Data) -> Result<()>
     {
         let mut w = self.lock.write().unwrap();
@@ -117,9 +117,50 @@ impl OTP {
 }
 
 #[cfg(test)]
-fn test_init() {
-    let mut o = OTP::new();
-    assert_eq!(Ok(()), o.shutdown());
+mod test {
+    use otp;
+    use std::sync::{Arc, Mutex};
+    use std::thread::sleep;
+    use std::time::Duration;
+
+    #[test]
+    fn test_init() {
+        let mut o = otp::OTP::new();
+        assert_eq!(Ok(()), o.shutdown());
+    }
+    
+    #[test]
+    fn test_source() {
+        let mut o = otp::OTP::new();
+        let val = Arc::new(Mutex::new(false));
+        let c_val = val.clone();
+        o.source(otp::Port::Reader, move |_ports| {
+            *c_val.lock().unwrap() = true;
+            Ok(())
+        });
+        sleep(Duration::new(1,0));
+        assert_eq!(*val.lock().unwrap(), true);
+        assert_eq!(Ok(()), o.shutdown());
+    }
+    #[test]
+    fn test_listen() {
+        let mut o = otp::OTP::new();
+        let val = Arc::new(Mutex::new(false));
+        o.source(otp::Port::Reader, move |ports| {
+            otp::OTP::send(ports, otp::Port::State, otp::Data::Signal)
+        });
+        let c_val = val.clone();
+        o.listen(otp::Port::State, move |ports, data| {
+            match data {
+                otp::Data::Signal => *c_val.lock().unwrap() = true,
+                _ => (),
+            }
+            Ok(())
+        });
+
+        sleep(Duration::new(1,0));
+        assert_eq!(*val.lock().unwrap(), true);
+        assert_eq!(Ok(()), o.shutdown());
+    }
+
 }
-
-
