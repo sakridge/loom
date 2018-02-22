@@ -123,6 +123,7 @@ impl OTP {
 #[cfg(test)]
 mod test {
     use otp;
+    use otp::Port::Reader;
     use std::sync::{Arc, Mutex};
     use std::thread::sleep;
     use std::time::Duration;
@@ -144,13 +145,9 @@ mod test {
                 Ok(())
             }));
 
-        assert!(o.source(otp::Port::Reader, move |_ports| {
-                Ok(())
-            }).is_err());
+        assert!(o.source(Reader, move |_ports| { Ok(()) }).is_err());
 
-        assert!(o.listen(otp::Port::Reader, move |_ports, _data| {
-                Ok(())
-            }).is_err());
+        assert!(o.listen(Reader, move |_ports, _data| { Ok(()) }).is_err());
  
         sleep(Duration::new(1,500000));
         assert_eq!(Ok(()), o.shutdown());
