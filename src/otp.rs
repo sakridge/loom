@@ -91,7 +91,7 @@ impl OTP {
         w.threads[port.to_usize()] = Arc::new(Some(j));
     }
     pub fn send(ports: Vec<Sender<Data>>, to: Port, m: Data) {
-        ports[to.into()].unwrap().send(m);
+        ports[to.to_usize()].send(m);
     }
     pub fn shutdown(&mut self) {
         {
@@ -100,7 +100,9 @@ impl OTP {
         {
             let r = self.lock.read().unwrap();
             for t in r.threads {
-                t.join();
+                if t.is_some() {
+                    t.unwrap().join();
+                }
             }
         }
     }
