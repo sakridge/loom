@@ -4,6 +4,7 @@ use std::thread::{JoinHandle, spawn};
 use std::time::Duration;
 use data;
 use result::Result;
+use result::Error;
 
 enum Port {
     Reader,
@@ -14,9 +15,9 @@ enum Port {
 impl Port {
     fn to_usize(self) -> usize {
         match self {
-            Reader => 0,
-            State => 1,
-            Max => 2,
+            Port::Reader => 0,
+            Port::State => 1,
+            Port::Max => 2,
         }
     }
 }
@@ -60,7 +61,7 @@ impl OTP {
         let c_ports = w.ports.clone();
         let c_exit = self.exit.clone();
         let j = spawn(move|| loop {
-            match func(c_ports) {
+            match func(c_ports.clone()) {
                 Ok(()) => (),
                 e => return e
             }
@@ -74,36 +75,44 @@ impl OTP {
         where F: Send + 'static + Fn(Vec<Sender<Data>>, Data) -> Result<()>
     {
         let mut w = self.lock.write().unwrap();
-        let recv_lock = w.readers[port.to_usize()].clone();
+        let pz = port.to_usize();
+        let recv_lock = w.readers[pz].clone();
         let c_ports = w.ports.clone();
         let c_exit = self.exit.clone();
         let j: JoinHandle<Result<()>> = spawn(move|| loop {
             let recv = recv_lock.lock().unwrap();
             let timer = Duration::new(0, 500000);
             match recv.recv_timeout(timer) {
-                Ok(val) => func(c_ports, val)?,
+                Ok(val) => func(c_ports.clone(), val)?,
                 _ => (),
             }
             if *c_exit.lock().unwrap() == true {
                 return Ok(());
             }
         });
-        w.threads[port.to_usize()] = Arc::new(Some(j));
+        w.threads[pz] = Arc::new(Some(j));
     }
     pub fn send(ports: Vec<Sender<Data>>, to: Port, m: Data) {
         ports[to.to_usize()].send(m);
     }
-    pub fn shutdown(&mut self) {
+    pub fn shutdown(&mut self) -> Result<()> {
         {
             *self.exit.lock().unwrap() = true;
         }
         {
             let r = self.lock.read().unwrap();
-            for t in r.threads {
-                if t.is_some() {
-                    t.unwrap().join();
+            for t in r.threads.iter() {
+                match Arc::try_unwrap((*t).clone()) {
+                    Ok(Some(j)) => 
+                        match j.join() {
+                            Ok(Ok(())) => (),
+                            Err(_) => return Err(Error::JoinError),
+                            Ok(e) => return e,
+                        },
+                    _ => (),
                 }
             }
         }
+        return Ok(());
     }
 }
