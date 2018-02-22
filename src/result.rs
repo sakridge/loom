@@ -11,6 +11,7 @@ pub enum Error {
     AES(crypto::symmetriccipher::SymmetricCipherError),
     AddrParse(std::net::AddrParseError),
     SendError,
+    OTPError,
     JoinError,
     NoneError,
     NoSpace,

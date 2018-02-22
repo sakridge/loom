@@ -53,10 +53,14 @@ impl OTP {
         let exit = Arc::new(Mutex::new(false));
         OTP {lock: Arc::new(RwLock::new(locked)), exit: exit}
     }
-    pub fn source<F>(&self, port: Port, func: F) 
+    pub fn source<F>(&self, port: Port, func: F)  -> Result<()>
         where F: Send + 'static + Fn(Vec<Sender<Data>>) -> Result<()>
     {
         let mut w = self.lock.write().unwrap();
+        let pz = port.to_usize();
+        if w.threads[pz].is_some() {
+            return Err(Error::OTPError);
+        }
         let c_ports = w.ports.clone();
         let c_exit = self.exit.clone();
         let j = spawn(move|| loop {
@@ -68,13 +72,17 @@ impl OTP {
                 return Ok(());
             }
         });
-        w.threads[port.to_usize()] = Arc::new(Some(j));
+        w.threads[pz] = Arc::new(Some(j));
+        return Ok(());
     }
-    pub fn listen<F>(&mut self, port: Port, func: F)
+    pub fn listen<F>(&mut self, port: Port, func: F) -> Result<()>
         where F: Send + 'static + Fn(Vec<Sender<Data>>, Data) -> Result<()>
     {
         let mut w = self.lock.write().unwrap();
         let pz = port.to_usize();
+        if w.threads[pz].is_some() {
+            return Err(Error::OTPError);
+        }
         let recv_lock = w.readers[pz].clone();
         let c_ports = w.ports.clone();
         let c_exit = self.exit.clone();
@@ -90,6 +98,7 @@ impl OTP {
             }
         });
         w.threads[pz] = Arc::new(Some(j));
+        return Ok(());
     }
     pub fn send(ports: Vec<Sender<Data>>, to: Port, m: Data) -> Result<()> {
         ports[to.to_usize()].send(m).or_else(|_| Err(Error::SendError))
@@ -134,11 +143,12 @@ mod test {
         let mut o = otp::OTP::new();
         let val = Arc::new(Mutex::new(false));
         let c_val = val.clone();
-        o.source(otp::Port::Reader, move |_ports| {
-            *c_val.lock().unwrap() = true;
-            Ok(())
-        });
-        sleep(Duration::new(1,0));
+        assert_eq!(Ok(()),
+            o.source(otp::Port::Reader, move |_ports| {
+                *c_val.lock().unwrap() = true;
+                Ok(())
+            }));
+        sleep(Duration::new(0,500000));
         assert_eq!(*val.lock().unwrap(), true);
         assert_eq!(Ok(()), o.shutdown());
     }
@@ -146,19 +156,20 @@ mod test {
     fn test_listen() {
         let mut o = otp::OTP::new();
         let val = Arc::new(Mutex::new(false));
-        o.source(otp::Port::Reader, move |ports| {
-            otp::OTP::send(ports, otp::Port::State, otp::Data::Signal)
-        });
+        assert_eq!(Ok(()),
+            o.source(otp::Port::Reader, move |ports| {
+                otp::OTP::send(ports, otp::Port::State, otp::Data::Signal)
+            }));
         let c_val = val.clone();
-        o.listen(otp::Port::State, move |ports, data| {
-            match data {
-                otp::Data::Signal => *c_val.lock().unwrap() = true,
-                _ => (),
-            }
-            Ok(())
-        });
-
-        sleep(Duration::new(1,0));
+        assert_eq!(Ok(()),
+            o.listen(otp::Port::State, move |ports, data| {
+                match data {
+                    otp::Data::Signal => *c_val.lock().unwrap() = true,
+                    _ => (),
+                }
+                Ok(())
+            }));
+        sleep(Duration::new(0,500000));
         assert_eq!(*val.lock().unwrap(), true);
         assert_eq!(Ok(()), o.shutdown());
     }
