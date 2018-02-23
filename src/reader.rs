@@ -104,11 +104,12 @@ mod test {
             }));
     
         let rvs = Arc::new(Mutex::new(0usize));
+        let a_rvs = rvs.clone();
         assert_eq!(Ok(()), o.listen(Port::State, move |ports, data|
             match data {
                 Data::SharedMessages(msgs) => {
-                    *rvs.lock().unwrap() += msgs.data.len();
-                    OTP::send(ports, Port::Recycle, data)?;
+                    *a_rvs.lock().unwrap() += msgs.data.len();
+                    OTP::send(ports, Port::Recycle, Data::SharedMessages(msgs))?;
                     Ok(())
                 }
                 _ => Ok(()),
@@ -129,7 +130,7 @@ mod test {
             tries += 1;
             trace!("write {:?}", num);
         }
-        o.shutdown();
+        assert_eq!(Ok(()), o.shutdown());
         assert_eq!(*rvs.lock().unwrap(), 64);
     }
 }

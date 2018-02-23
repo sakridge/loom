@@ -24,6 +24,7 @@ impl Port {
     }
 }
 
+#[derive(Clone)]
 pub enum Data {
     Signal,
     SharedMessages(data::SharedMessages),
@@ -46,11 +47,15 @@ impl OTP {
     pub fn new() -> OTP {
         let (s1,r1) = channel();
         let (s2,r2) = channel();
+        let (s3,r3) = channel();
         let locked = Locked {
-            ports : [s1, s2].to_vec(),
+            ports : [s1, s2, s3].to_vec(),
             readers : [Arc::new(Mutex::new(r1)),
-                       Arc::new(Mutex::new(r2))].to_vec(),
-            threads : [Arc::new(None), Arc::new(None)].to_vec(),
+                       Arc::new(Mutex::new(r2)),
+                       Arc::new(Mutex::new(r3))].to_vec(),
+            threads : [Arc::new(None),
+                       Arc::new(None),
+                       Arc::new(None)].to_vec(),
         };
         let exit = Arc::new(Mutex::new(false));
         OTP {lock: Arc::new(RwLock::new(locked)), exit: exit}
