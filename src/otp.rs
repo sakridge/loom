@@ -11,6 +11,7 @@ use result::Error;
 pub enum Port {
     Reader,
     State,
+    Recycle,
 }
 
 impl Port {
@@ -18,6 +19,7 @@ impl Port {
         match self {
             Port::Reader => 0,
             Port::State => 1,
+            Port::Recycle => 2,
         }
     }
 }

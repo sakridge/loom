@@ -24,7 +24,7 @@ impl Reader {
         };
         return Ok(rv);
     }
-    pub fn recycle(&self, _ports: &Vec<Port>, d: Data) {
+    pub fn recycle(&self, d: Data) {
         match d {
             Data::SharedMessages(m) => {
                 let mut gc = self.lock.lock().expect("lock");
@@ -77,48 +77,58 @@ impl Reader {
 }
 
 #[cfg(test)]
-use std::thread::spawn;
-#[cfg(test)]
-use std::thread::sleep;
-
-#[test]
-fn reader_test() {
-    let reader = Arc::new(Reader::new(12001).expect("reader"));
-    let c_reader = reader.clone();
-    let exit = Arc::new(Mutex::new(false));
-    let c_exit = exit.clone();
-    let t = spawn(move || c_reader.run(c_exit));
-    let cli: UdpSocket = net::socket().expect("socket");
-    cli.connect("127.0.0.1:12001").expect("client");
-    let timer = Duration::new(1, 0);
-    cli.set_write_timeout(Some(timer)).expect("write timer");
-    let m = [data::Message::default(); 64];
-    let mut num = 0;
-    let mut tries = 0;
-    while num < 64 && tries < 100 {
-        match net::write(&cli, &m[0..num + 1], &mut num) {
-            Err(_) => sleep(Duration::new(0, 500000000)),
-            _ => (),
-        }
-        tries += 1;
-        trace!("write {:?}", num);
-    }
-    let mut rvs = 0usize;
-    tries = 0;
-    while rvs < 64 && tries < 100 {
-        match reader.next() {
-            Err(_) => {
-                sleep(Duration::new(0, 500000000));
+mod test {
+    use std::thread::sleep;
+    use otp::{OTP, Port, Data};
+    use std::sync::{Arc, Mutex};
+    use std::net::UdpSocket;
+    use reader::Reader;
+    use std::time::Duration;
+    use net;
+    use data;
+    
+    #[test]
+    fn reader_test() {
+        let reader = Arc::new(Reader::new(12001).expect("reader"));
+        let mut o = OTP::new();
+        let c_reader = reader.clone();
+        assert_eq!(Ok(()),
+            o.source(Port::Reader, move |ports| {
+                c_reader.run(ports)
+            }));
+        assert_eq!(Ok(()),
+            o.listen(Port::Recycle, move |_ports, data| {
+                c_reader.recycle(data);
+                Ok(())
+            }));
+    
+        let rvs = Arc::new(Mutex::new(0usize));
+        assert_eq!(Ok(()), o.listen(Port::State, move |ports, data|
+            match data {
+                Data::SharedMessages(msgs) => {
+                    *rvs.lock().unwrap() += msgs.data.len();
+                    OTP::send(ports, Port::Recycle, data)?;
+                    Ok(())
+                }
+                _ => Ok(()),
+            }));
+     
+        let cli: UdpSocket = net::socket().expect("socket");
+        cli.connect("127.0.0.1:12001").expect("client");
+        let timer = Duration::new(1, 0);
+        cli.set_write_timeout(Some(timer)).expect("write timer");
+        let m = [data::Message::default(); 64];
+        let mut num = 0;
+        let mut tries = 0;
+        while num < 64 && tries < 100 {
+            match net::write(&cli, &m[0..num + 1], &mut num) {
+                Err(_) => sleep(Duration::new(0, 50000000)),
+                _ => (),
             }
-            Ok(msgs) => {
-                rvs += msgs.data.len();
-            }
+            tries += 1;
+            trace!("write {:?}", num);
         }
-        tries += 1;
-        trace!("read {:?} {:?}", rvs, tries);
+        o.shutdown();
+        assert_eq!(*rvs.lock().unwrap(), 64);
     }
-    *exit.lock().expect("lock") = true;
-    let o = t.join().expect("thread join");
-    o.expect("thread output");
-    assert_eq!(rvs, 64);
 }
