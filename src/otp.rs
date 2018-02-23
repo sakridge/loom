@@ -167,7 +167,7 @@ mod test {
             }));
         let c_val = val.clone();
         assert_eq!(Ok(()),
-            o.listen(otp::Port::State, move |ports, data| {
+            o.listen(otp::Port::State, move |_ports, data| {
                 match data {
                     otp::Data::Signal => *c_val.lock().unwrap() = true,
                     _ => (),

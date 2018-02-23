@@ -91,14 +91,15 @@ mod test {
     fn reader_test() {
         let reader = Arc::new(Reader::new(12001).expect("reader"));
         let mut o = OTP::new();
-        let c_reader = reader.clone();
+        let a_reader = reader.clone();
         assert_eq!(Ok(()),
             o.source(Port::Reader, move |ports| {
-                c_reader.run(ports)
+                a_reader.run(ports)
             }));
+        let b_reader = reader.clone();
         assert_eq!(Ok(()),
             o.listen(Port::Recycle, move |_ports, data| {
-                c_reader.recycle(data);
+                b_reader.recycle(data);
                 Ok(())
             }));
     
