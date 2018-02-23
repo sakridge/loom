@@ -203,18 +203,18 @@ pub type AccountT = HashT<[u8; 32], Account>;
 
 #[derive(Clone)]
 pub struct Messages {
-    msgs: Vec<Message>,
-    data: Vec<(usize, SocketAddr)>,
+    pub msgs: Vec<Message>,
+    pub data: Vec<(usize, SocketAddr)>,
 }
 
 impl Messages {
-    fn new() -> Messages {
+    pub fn new() -> Messages {
         Messages {
             msgs: vec![Message::default(); 1024],
             data: vec![Self::def_data(); 1024],
         }
     }
-    fn def_data() -> (usize, SocketAddr) {
+    pub fn def_data() -> (usize, SocketAddr) {
         let ipv4 = Ipv4Addr::new(0, 0, 0, 0);
         let addr = SocketAddr::new(IpAddr::V4(ipv4), 0);
         (0, addr)

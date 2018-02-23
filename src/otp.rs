@@ -38,6 +38,8 @@ pub struct OTP {
     exit: Arc<Mutex<bool>>,
 }
 
+pub type Ports = Vec<Sender<Data>>;
+
 impl OTP {
     pub fn new() -> OTP {
         let (s1,r1) = channel();
@@ -52,7 +54,7 @@ impl OTP {
         OTP {lock: Arc::new(RwLock::new(locked)), exit: exit}
     }
     pub fn source<F>(&self, port: Port, func: F)  -> Result<()>
-        where F: Send + 'static + Fn(&Vec<Sender<Data>>) -> Result<()>
+        where F: Send + 'static + Fn(&Ports) -> Result<()>
     {
         let mut w = self.lock.write().unwrap();
         let pz = port.to_usize();
@@ -74,7 +76,7 @@ impl OTP {
         return Ok(());
     }
     pub fn listen<F>(&mut self, port: Port, func: F) -> Result<()>
-        where F: Send + 'static + Fn(&Vec<Sender<Data>>, Data) -> Result<()>
+        where F: Send + 'static + Fn(&Ports, Data) -> Result<()>
     {
         let mut w = self.lock.write().unwrap();
         let pz = port.to_usize();
@@ -100,7 +102,7 @@ impl OTP {
         w.threads[pz] = Arc::new(Some(j));
         return Ok(());
     }
-    pub fn send(ports: &Vec<Sender<Data>>, to: Port, m: Data) -> Result<()> {
+    pub fn send(ports: &Ports, to: Port, m: Data) -> Result<()> {
         ports[to.to_usize()].send(m).or_else(|_| Err(Error::SendError))
     }
     pub fn shutdown(&mut self) -> Result<()> {

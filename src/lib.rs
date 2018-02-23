@@ -16,10 +16,10 @@ pub mod otp;
 pub mod hasht;
 pub mod result;
 pub mod wallet;
+pub mod reader;
 //pub mod state;
 //pub mod gossip;
 pub mod aes;
 //pub mod ledger;
-//pub mod reader;
 //pub mod daemon;
 
