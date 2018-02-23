@@ -108,7 +108,8 @@ mod test {
         assert_eq!(Ok(()), o.listen(Port::State, move |ports, data|
             match data {
                 Data::SharedMessages(msgs) => {
-                    *a_rvs.lock().unwrap() += msgs.data.len();
+                    let mut v = a_rvs.lock().unwrap();
+                    *v += msgs.data.len();
                     OTP::send(ports, Port::Recycle, Data::SharedMessages(msgs))?;
                     Ok(())
                 }
@@ -130,6 +131,7 @@ mod test {
             tries += 1;
             trace!("write {:?}", num);
         }
+        sleep(Duration::new(1, 50000000));
         assert_eq!(Ok(()), o.shutdown());
         assert_eq!(*rvs.lock().unwrap(), 64);
     }
