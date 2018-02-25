@@ -161,7 +161,7 @@ mod tests {
                 let d_ = d.clone();
                 match d {
                     SharedMessages(m) => {
-                        for v in m.msgs.iter() {
+                        for v in m.read().unwrap().msgs.iter() {
                             assert_eq!(v.pld.state, data::State::Deposited);
                         }
                         OTP::send(p, Port::Main, Signal)?;

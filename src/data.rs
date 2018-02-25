@@ -5,6 +5,7 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::{Arc, RwLock};
 use hasht::{HashT, Key, Val};
+use result::Result;
 #[derive(Default, Copy, Clone)]
 #[repr(C)]
 pub struct Transaction {
@@ -218,6 +219,11 @@ impl Messages {
         let ipv4 = Ipv4Addr::new(0, 0, 0, 0);
         let addr = SocketAddr::new(IpAddr::V4(ipv4), 0);
         (0, addr)
+    }
+    pub fn with<F, A>(&mut self, f: F) -> Result<A>
+        where F: Fn(&mut Vec<Message>, &mut Vec<(usize, SocketAddr)>) -> Result<A>
+    {
+        f(&mut self.msgs, &mut self.data)
     }
 }
 

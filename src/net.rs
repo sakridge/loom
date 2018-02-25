@@ -26,10 +26,10 @@ pub fn socket() -> Result<UdpSocket> {
     Ok(ret)
 }
 
-pub fn read_from(
+pub fn read_from<'a>(
     socket: &UdpSocket,
-    messages: &mut [Message],
-    mdata: &mut [(usize, SocketAddr)],
+    messages: &'a mut [Message],
+    mdata: &'a mut [(usize, SocketAddr)],
 ) -> Result<usize> {
     let sz = size_of::<Message>();
     let max = messages.len();

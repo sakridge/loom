@@ -36,13 +36,12 @@ impl Reader {
 
     fn read(&self, m: data::SharedMessages) -> Result<usize> {
             let mut v = m.write().unwrap();
-            v.msgs.resize(1024, data::Message::default());
-            v.data.resize(1024, data::Messages::def_data());
-            unsafe {
-                let msgs = &v.msgs as *mut data::Message;
-                let data = &v.data as *mut (usize, SocketAddr);
-                net::read_from(&self.sock, &mut msgs, &mut data)
-            }
+            const SIZE: usize = 1024;
+            v.msgs.resize(SIZE, data::Message::default());
+            v.data.resize(SIZE, data::Messages::def_data());
+            v.with(move|ms, ds| {
+                net::read_from(&self.sock, ms, ds)
+            })
     }
 
     pub fn run(&self, ports: &Ports) -> Result<()> {
@@ -50,7 +49,7 @@ impl Reader {
         let mut total = 0usize;
         {
             trace!("reading");
-            let r = self.read(m);
+            let r = self.read(m.clone());
             trace!("reading done");
             match r {
                 Err(IO(e)) => {
