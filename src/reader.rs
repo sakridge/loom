@@ -131,7 +131,7 @@ mod test {
             tries += 1;
             trace!("write {:?}", num);
         }
-        sleep(Duration::new(1, 50000000));
+        sleep(Duration::new(1, 0));
         assert_eq!(Ok(()), o.shutdown());
         assert_eq!(*rvs.lock().unwrap(), 64);
     }

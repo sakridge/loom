@@ -9,6 +9,7 @@ use result::Result;
 use result::Error;
 
 pub enum Port {
+    Main,
     Reader,
     State,
     Recycle,
@@ -17,9 +18,10 @@ pub enum Port {
 impl Port {
     fn to_usize(self) -> usize {
         match self {
-            Port::Reader => 0,
-            Port::State => 1,
-            Port::Recycle => 2,
+            Port::Main => 0,
+            Port::Reader => 2,
+            Port::State => 3,
+            Port::Recycle => 4,
         }
     }
 }
@@ -48,12 +50,15 @@ impl OTP {
         let (s1,r1) = channel();
         let (s2,r2) = channel();
         let (s3,r3) = channel();
+        let (s4,r4) = channel();
         let locked = Locked {
-            ports : [s1, s2, s3].to_vec(),
+            ports : [s1, s2, s3, s4].to_vec(),
             readers : [Arc::new(Mutex::new(r1)),
                        Arc::new(Mutex::new(r2)),
-                       Arc::new(Mutex::new(r3))].to_vec(),
+                       Arc::new(Mutex::new(r3)),
+                       Arc::new(Mutex::new(r4))].to_vec(),
             threads : [Arc::new(None),
+                       Arc::new(None),
                        Arc::new(None),
                        Arc::new(None)].to_vec(),
         };
@@ -112,6 +117,13 @@ impl OTP {
     pub fn send(ports: &Ports, to: Port, m: Data) -> Result<()> {
         ports[to.to_usize()].send(m).or_else(|_| Err(Error::SendError))
     }
+    pub fn join(&mut self) -> Result<()> {
+        let pz = Port::Main.to_usize();
+        let recv = self.lock.write().unwrap().readers[pz].clone();
+        recv.lock().unwrap().recv()?;
+        self.shutdown()?;
+        return Ok(());
+    }
     pub fn shutdown(&mut self) -> Result<()> {
         {
             *self.exit.lock().unwrap() = true;
@@ -131,25 +143,26 @@ impl OTP {
 
 #[cfg(test)]
 mod test {
-    use otp;
-    use otp::Port::Reader;
+    use otp::OTP;
+    use otp::Port::{Reader, Main, State};
+    use otp::Data::Signal;
     use std::sync::{Arc, Mutex};
     use std::thread::sleep;
     use std::time::Duration;
 
     #[test]
     fn test_init() {
-        let mut o = otp::OTP::new();
+        let mut o = OTP::new();
         assert_eq!(Ok(()), o.shutdown());
     }
     
     #[test]
     fn test_source() {
-        let mut o = otp::OTP::new();
+        let mut o = OTP::new();
         let val = Arc::new(Mutex::new(false));
         let c_val = val.clone();
         assert_eq!(Ok(()),
-            o.source(otp::Port::Reader, move |_ports| {
+            o.source(Reader, move |_ports| {
                 *c_val.lock().unwrap() = true;
                 Ok(())
             }));
@@ -163,24 +176,36 @@ mod test {
         assert_eq!(*val.lock().unwrap(), true);
     }
     #[test]
+    fn test_join() {
+        let mut o = OTP::new();
+        let val = Arc::new(Mutex::new(false));
+        let c_val = val.clone();
+        assert_eq!(Ok(()),
+            o.source(Reader, move |ports| {
+                OTP::send(ports, Main, Signal) 
+            }));
+        assert_eq!(Ok(()), o.join());
+    }
+    #[test]
     fn test_listen() {
-        let mut o = otp::OTP::new();
+        let mut o = OTP::new();
         let val = Arc::new(Mutex::new(false));
         assert_eq!(Ok(()),
-            o.source(otp::Port::Reader, move |ports| {
-                otp::OTP::send(ports, otp::Port::State, otp::Data::Signal)
+            o.source(Reader, move |ports| {
+                OTP::send(ports, State, Signal)
             }));
         let c_val = val.clone();
         assert_eq!(Ok(()),
-            o.listen(otp::Port::State, move |_ports, data| {
+            o.listen(State, move |ports, data| {
                 match data {
-                    otp::Data::Signal => *c_val.lock().unwrap() = true,
-                    _ => (),
+                    Signal => {
+                        *c_val.lock().unwrap() = true;
+                        OTP::send(ports, Main, Signal)
+                    }
+                    _ => Ok(()),
                 }
-                Ok(())
             }));
-        sleep(Duration::new(1,500000));
-        assert_eq!(Ok(()), o.shutdown());
+        assert_eq!(Ok(()), o.join());
         assert_eq!(*val.lock().unwrap(), true);
     }
 

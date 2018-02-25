@@ -12,6 +12,7 @@ pub enum Error {
     AES(crypto::symmetriccipher::SymmetricCipherError),
     AddrParse(std::net::AddrParseError),
     JoinError(Box<Any + Send + 'static>),
+    RecvError(std::sync::mpsc::RecvError),
     SendError,
     OTPError,
     NoneError,
@@ -34,6 +35,12 @@ pub type Result<T> = core::result::Result<T, Error>;
 
 pub fn from_option<T>(r: Option<T>) -> Result<T> {
     r.ok_or(Error::NoneError)
+}
+
+impl core::convert::From<std::sync::mpsc::RecvError> for Error {
+    fn from(e: std::sync::mpsc::RecvError) -> Error {
+        Error::RecvError(e)
+    }
 }
 
 impl core::convert::From<Box<Any + Send + 'static>> for Error {

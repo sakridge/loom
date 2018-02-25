@@ -17,7 +17,7 @@ pub mod hasht;
 pub mod result;
 pub mod wallet;
 pub mod reader;
-//pub mod state;
+pub mod state;
 //pub mod gossip;
 pub mod aes;
 //pub mod ledger;
