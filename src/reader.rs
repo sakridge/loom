@@ -33,6 +33,13 @@ impl Reader {
             _ => (),
         }
     }
+    pub fn read<'a>(&self,
+                    msgs: &'a mut [Message],
+                    data: &'a mut [(usize, SocketAddr)]) -> Result<usize> {
+
+            net::read_from(&self.sock, msgs, data)
+    }
+
     pub fn run(&self, ports: &Ports) -> Result<()> {
         let m = self.allocate();
         let mut total = 0usize;
