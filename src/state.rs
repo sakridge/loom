@@ -123,7 +123,7 @@ mod tests {
     use state::State;
     use reader::Reader;
     use data;
-    use std::sync::Arc;
+    use std::sync::{Arc, Mutex};
     use net;
     use std::net::UdpSocket;
     use hasht::Key;
@@ -154,11 +154,6 @@ mod tests {
     fn state_system_test() {
         const NUM: usize = 128usize;
         let reader = Arc::new(Reader::new(12002).expect("reader"));
-        let mut state = Arc::new(State::new(64));
-        let fk = [255u8; 32];
-        let fp = data::AccountT::find(&state.accounts, &fk).expect("f");
-        state.accounts[fp].from = fk;
-        state.accounts[fp].balance = NUM as u64 * 2u64;
         let mut o = OTP::new();
         let a_reader = reader.clone();
         assert_eq!(Ok(()),
@@ -166,6 +161,7 @@ mod tests {
         let b_reader = reader.clone();
         assert_eq!(Ok(()),
             o.listen(Port::Recycle, move |p, d| {
+                let d_ = d.clone();
                 match d {
                     SharedMessages(m) => {
                         for v in m.msgs.iter() {
@@ -175,12 +171,14 @@ mod tests {
                     }
                     _ => (),
                 }
-                b_reader.recycle(d);
+                b_reader.recycle(d_);
                 Ok(())
             }));
+        let list = [data::Account {from: [255u8; 32], balance: NUM as u64 * 2u64}];
+        let state = Arc::new(Mutex::new(State::from_list(&list).expect("from list")));
         let a_state = state.clone();
         assert_eq!(Ok(()),
-            o.listen(Port::State, move |p, d| a_state.run(p, d)));
+            o.listen(Port::State, move |p, d| a_state.lock().unwrap().run(p, d)));
         let cli: UdpSocket = net::socket().expect("socket");
         cli.connect("127.0.0.1:12002").expect("client");
         let mut msgs = [data::Message::default(); NUM];
