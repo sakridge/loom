@@ -82,7 +82,7 @@ int main(int argc, const char* argv[]) {
     cudaMemcpy(h_hash, d_hash, num_blocks * HASH_SIZE, cudaMemcpyDeviceToHost);
 
     for (int i = 0; i < (num_blocks * HASH_SIZE) / sizeof(uint32_t); i++) {
-        if (i % 8 == 0) {
+        if ((i != 0) && i % 8 == 0) {
             printf("\n");
         }
         printf("%08x ", h_hash[i]);
