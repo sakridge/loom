@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use result::Result;
 use result::Error::IO;
@@ -34,10 +34,10 @@ impl Reader {
         }
     }
     pub fn run(&self, ports: &Ports) -> Result<()> {
-        let mut m = self.allocate();
+        let m = self.allocate();
         let mut total = 0usize;
         {
-            let v = Arc::get_mut(&mut m).expect("only ref");
+            let mut v = m.write().unwrap();
             v.msgs.resize(1024, data::Message::default());
             v.data.resize(1024, data::Messages::def_data());
             trace!("reading");
@@ -72,7 +72,7 @@ impl Reader {
     }
     fn allocate(&self) -> data::SharedMessages {
         let mut gc = self.lock.lock().expect("lock");
-        gc.pop().unwrap_or_else(|| Arc::new(data::Messages::new()))
+        gc.pop().unwrap_or_else(|| Arc::new(RwLock::new(data::Messages::new())))
     }
 }
 
@@ -109,7 +109,7 @@ mod test {
             match data {
                 Data::SharedMessages(msgs) => {
                     let mut v = a_rvs.lock().unwrap();
-                    *v += msgs.data.len();
+                    *v += msgs.read().unwrap().data.len();
                     OTP::send(ports, Port::Recycle, Data::SharedMessages(msgs))?;
                     Ok(())
                 }

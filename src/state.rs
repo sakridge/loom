@@ -4,7 +4,6 @@ use data;
 use result::Result;
 use hasht::Key;
 use otp::{OTP, Port, Data, Ports};
-use std::sync::Arc;
 
 #[repr(C)]
 pub struct State {
@@ -55,9 +54,7 @@ impl State {
     pub fn run(&mut self, p: &Ports, d: Data) -> Result<()> {
         match d {
             Data::SharedMessages(m) => {
-                let mut msg = m.clone();
-                let v = Arc::get_mut(&mut msg).expect("msgs only ref");
-                self.execute(&mut v.msgs)?;
+                self.execute(&mut m.write().unwrap().msgs)?;
                 OTP::send(p, Port::Recycle, Data::SharedMessages(m))?;
             }
             _ => (),

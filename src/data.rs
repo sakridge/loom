@@ -3,7 +3,7 @@
 //! TBD a lightweight serialization format.
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use hasht::{HashT, Key, Val};
 #[derive(Default, Copy, Clone)]
 #[repr(C)]
@@ -221,4 +221,4 @@ impl Messages {
     }
 }
 
-pub type SharedMessages = Arc<Messages>;
+pub type SharedMessages = Arc<RwLock<Messages>>;
