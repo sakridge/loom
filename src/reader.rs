@@ -33,22 +33,24 @@ impl Reader {
             _ => (),
         }
     }
-    pub fn read<'a>(&self,
-                    msgs: &'a mut [Message],
-                    data: &'a mut [(usize, SocketAddr)]) -> Result<usize> {
 
-            net::read_from(&self.sock, msgs, data)
+    fn read(&self, m: data::SharedMessages) -> Result<usize> {
+            let mut v = m.write().unwrap();
+            v.msgs.resize(1024, data::Message::default());
+            v.data.resize(1024, data::Messages::def_data());
+            unsafe {
+                let msgs = &v.msgs as *mut data::Message;
+                let data = &v.data as *mut (usize, SocketAddr);
+                net::read_from(&self.sock, &mut msgs, &mut data)
+            }
     }
 
     pub fn run(&self, ports: &Ports) -> Result<()> {
         let m = self.allocate();
         let mut total = 0usize;
         {
-            let mut v = m.write().unwrap();
-            v.msgs.resize(1024, data::Message::default());
-            v.data.resize(1024, data::Messages::def_data());
             trace!("reading");
-            let r = net::read_from(&self.sock, &mut v.msgs, &mut v.data);
+            let r = self.read(m);
             trace!("reading done");
             match r {
                 Err(IO(e)) => {
@@ -61,6 +63,7 @@ impl Reader {
                     trace!("read returned 0");
                 }
                 Ok(num) => {
+                    let mut v = m.write().unwrap();
                     let s: usize = v.data.iter_mut().map(|v| v.0).sum();
                     total += s;
                     v.msgs.resize(s, data::Message::default());
