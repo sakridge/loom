@@ -154,7 +154,7 @@ mod tests {
     fn state_system_test() {
         const NUM: usize = 128usize;
         let reader = Arc::new(Reader::new(12002).expect("reader"));
-        let state = Arc::new(State::new(64));
+        let mut state = Arc::new(State::new(64));
         let fk = [255u8; 32];
         let fp = data::AccountT::find(&state.accounts, &fk).expect("f");
         state.accounts[fp].from = fk;
@@ -169,14 +169,14 @@ mod tests {
                 match d {
                     SharedMessages(m) => {
                         for v in m.msgs.iter() {
-                            assert_eq!(v.state, data::State::Deposited);
+                            assert_eq!(v.pld.state, data::State::Deposited);
                         }
                         OTP::send(p, Port::Main, Signal)?;
                     }
                     _ => (),
                 }
                 b_reader.recycle(d);
-                Ok(());
+                Ok(())
             }));
         let a_state = state.clone();
         assert_eq!(Ok(()),

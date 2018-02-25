@@ -178,8 +178,6 @@ mod test {
     #[test]
     fn test_join() {
         let mut o = OTP::new();
-        let val = Arc::new(Mutex::new(false));
-        let c_val = val.clone();
         assert_eq!(Ok(()),
             o.source(Reader, move |ports| {
                 OTP::send(ports, Main, Signal) 

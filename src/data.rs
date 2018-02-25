@@ -90,7 +90,7 @@ impl Clone for Kind {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 #[repr(u8)]
 pub enum State {
     Unknown,
