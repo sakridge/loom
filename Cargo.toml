@@ -8,6 +8,8 @@ license = "APACHE-2.0"
 documentation = "tbd"
 keywords = ["blockchain"]
 readme = "README.md"
+links = "libsha256"
+build = "build.rs"
 
 [features]
 unstable = []
@@ -33,3 +35,5 @@ env_logger = "^0.5.4"
 data-encoding = "^2.1.1"
 matches = "^0.1.6"
 nix = "^0.10.0"
+libc = "0.2.0"
+

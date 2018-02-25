@@ -26,6 +26,7 @@ pub mod aes;
 pub mod daemon;
 pub mod sender;
 pub mod client;
+pub mod sha256;
 
 #[cfg(test)]
 #[macro_use]

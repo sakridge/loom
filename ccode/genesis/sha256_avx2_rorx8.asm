@@ -1137,8 +1137,10 @@ STACK_SIZE	equ _RSP       + _RSP_SIZE
 ;; arg 3 : Num blocks
 section .text
 global sha256_rorx_x8ms
+global _sha256_rorx_x8ms
 align 32
 sha256_rorx_x8ms:
+_sha256_rorx_x8ms:
 	push	rbx
 %ifndef LINUX
 	push	rsi
