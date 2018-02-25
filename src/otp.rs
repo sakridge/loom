@@ -19,9 +19,9 @@ impl Port {
     fn to_usize(self) -> usize {
         match self {
             Port::Main => 0,
-            Port::Reader => 2,
-            Port::State => 3,
-            Port::Recycle => 4,
+            Port::Reader => 1,
+            Port::State => 2,
+            Port::Recycle => 3,
         }
     }
 }
@@ -147,33 +147,11 @@ mod test {
     use otp::Port::{Reader, Main, State};
     use otp::Data::Signal;
     use std::sync::{Arc, Mutex};
-    use std::thread::sleep;
-    use std::time::Duration;
 
     #[test]
     fn test_init() {
         let mut o = OTP::new();
         assert_eq!(Ok(()), o.shutdown());
-    }
-    
-    #[test]
-    fn test_source() {
-        let mut o = OTP::new();
-        let val = Arc::new(Mutex::new(false));
-        let c_val = val.clone();
-        assert_eq!(Ok(()),
-            o.source(Reader, move |_ports| {
-                *c_val.lock().unwrap() = true;
-                Ok(())
-            }));
-
-        assert!(o.source(Reader, move |_ports| { Ok(()) }).is_err());
-
-        assert!(o.listen(Reader, move |_ports, _data| { Ok(()) }).is_err());
- 
-        sleep(Duration::new(1,500000));
-        assert_eq!(Ok(()), o.shutdown());
-        assert_eq!(*val.lock().unwrap(), true);
     }
     #[test]
     fn test_join() {
@@ -182,6 +160,17 @@ mod test {
             o.source(Reader, move |ports| {
                 OTP::send(ports, Main, Signal) 
             }));
+        assert_eq!(Ok(()), o.join());
+    }
+    #[test]
+    fn test_source() {
+        let mut o = OTP::new();
+        assert_eq!(Ok(()),
+            o.source(Reader, move |ports| {
+                OTP::send(ports, Main, Signal)
+            }));
+        assert!(o.source(Reader, move |_ports| { Ok(()) }).is_err());
+        assert!(o.listen(Reader, move |_ports, _data| { Ok(()) }).is_err());
         assert_eq!(Ok(()), o.join());
     }
     #[test]
