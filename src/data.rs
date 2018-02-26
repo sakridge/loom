@@ -48,7 +48,6 @@ pub struct CheckBalance {
     pub amount: u64,
 }
 
-
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub union MessageData {
@@ -221,7 +220,8 @@ impl Messages {
         (0, addr)
     }
     pub fn with<F, A>(&mut self, f: F) -> Result<A>
-        where F: Fn(&mut Vec<Message>, &mut Vec<(usize, SocketAddr)>) -> Result<A>
+    where
+        F: Fn(&mut Vec<Message>, &mut Vec<(usize, SocketAddr)>) -> Result<A>,
     {
         f(&mut self.msgs, &mut self.data)
     }

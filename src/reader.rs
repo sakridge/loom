@@ -5,7 +5,7 @@ use result::Error::IO;
 use std::time::Duration;
 use data;
 use net;
-use otp::{OTP, Port, Data, Ports};
+use otp::{Data, Port, Ports, OTP};
 
 pub struct Reader {
     lock: Mutex<Vec<data::SharedMessages>>,
@@ -35,13 +35,11 @@ impl Reader {
     }
 
     fn read(&self, m: data::SharedMessages) -> Result<usize> {
-            let mut v = m.write().unwrap();
-            const SIZE: usize = 1024;
-            v.msgs.resize(SIZE, data::Message::default());
-            v.data.resize(SIZE, data::Messages::def_data());
-            v.with(move|ms, ds| {
-                net::read_from(&self.sock, ms, ds)
-            })
+        let mut v = m.write().unwrap();
+        const SIZE: usize = 1024;
+        v.msgs.resize(SIZE, data::Message::default());
+        v.data.resize(SIZE, data::Messages::def_data());
+        v.with(move |ms, ds| net::read_from(&self.sock, ms, ds))
     }
 
     pub fn run(&self, ports: &Ports) -> Result<()> {
@@ -81,41 +79,45 @@ impl Reader {
     }
     fn allocate(&self) -> data::SharedMessages {
         let mut gc = self.lock.lock().expect("lock");
-        gc.pop().unwrap_or_else(|| Arc::new(RwLock::new(data::Messages::new())))
+        gc.pop()
+            .unwrap_or_else(|| Arc::new(RwLock::new(data::Messages::new())))
     }
 }
 
 #[cfg(test)]
 mod test {
     use std::thread::sleep;
-    use otp::{OTP, Port, Data};
+    use otp::{Data, Port, OTP};
     use std::sync::{Arc, Mutex};
     use std::net::UdpSocket;
     use reader::Reader;
     use std::time::Duration;
     use net;
     use data;
-    
+
     #[test]
     fn reader_test() {
         let reader = Arc::new(Reader::new(12001).expect("reader"));
         let mut o = OTP::new();
         let a_reader = reader.clone();
-        assert_eq!(Ok(()),
-            o.source(Port::Reader, move |ports| {
-                a_reader.run(ports)
-            }));
+        assert_eq!(
+            Ok(()),
+            o.source(Port::Reader, move |ports| a_reader.run(ports))
+        );
         let b_reader = reader.clone();
-        assert_eq!(Ok(()),
+        assert_eq!(
+            Ok(()),
             o.listen(Port::Recycle, move |_ports, data| {
                 b_reader.recycle(data);
                 Ok(())
-            }));
-    
+            })
+        );
+
         let rvs = Arc::new(Mutex::new(0usize));
         let a_rvs = rvs.clone();
-        assert_eq!(Ok(()), o.listen(Port::State, move |ports, data|
-            match data {
+        assert_eq!(
+            Ok(()),
+            o.listen(Port::State, move |ports, data| match data {
                 Data::SharedMessages(msgs) => {
                     let mut v = a_rvs.lock().unwrap();
                     *v += msgs.read().unwrap().data.len();
@@ -123,8 +125,9 @@ mod test {
                     Ok(())
                 }
                 _ => Ok(()),
-            }));
-     
+            })
+        );
+
         let cli: UdpSocket = net::socket().expect("socket");
         cli.connect("127.0.0.1:12001").expect("client");
         let timer = Duration::new(1, 0);

@@ -11,7 +11,7 @@ use std::mem::transmute;
 use getopts::Options;
 use std::env;
 use std::string::String;
-use otp::{OTP, Port};
+use otp::{Port, OTP};
 
 fn print_usage(program: &str, opts: Options) {
     let brief = format!("Usage: {} FILE [options]", program);
@@ -20,8 +20,7 @@ fn print_usage(program: &str, opts: Options) {
 
 fn loomd(testnet: Option<String>, port: u16) -> Result<()> {
     let state = match testnet {
-        Some(f) => 
-            state_from_file(&f).and_then(|x| Ok(Arc::new(Mutex::new(x))))?,
+        Some(f) => state_from_file(&f).and_then(|x| Ok(Arc::new(Mutex::new(x))))?,
         None => Arc::new(Mutex::new(state::State::new(1024))),
     };
     let reader = Reader::new(port).and_then(|x| Ok(Arc::new(x)))?;
@@ -29,7 +28,10 @@ fn loomd(testnet: Option<String>, port: u16) -> Result<()> {
     let a_reader = reader.clone();
     o.source(Port::Reader, move |p| a_reader.run(p))?;
     let b_reader = reader.clone();
-    o.listen(Port::Recycle, move |_p, d| { b_reader.recycle(d); Ok(())})?;
+    o.listen(Port::Recycle, move |_p, d| {
+        b_reader.recycle(d);
+        Ok(())
+    })?;
     let a_state = state.clone();
     o.listen(Port::State, move |p, d| a_state.lock().unwrap().run(p, d))?;
     o.join()
@@ -93,7 +95,7 @@ pub fn run() {
 //    use std::thread::spawn;
 //    use std::net::UdpSocket;
 //    use std::mem::transmute;
-// 
+//
 //    fn check_balance(s: &UdpSocket, w: &wallet::Wallet, to: [u8;32]) -> Result<u64> {
 //        let mut num = 0;
 //        while num < 1 {

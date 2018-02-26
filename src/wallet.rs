@@ -100,9 +100,9 @@ impl Wallet {
         let pk = unsafe { transmute::<[u64; 8], [u8; 64]>(kp.0) };
         msg.sig = ed25519::signature(buf, &pk);
     }
-    pub fn find(&self, from: [u8;32]) -> Result<usize> {
-        let fk = unsafe { transmute::<[u8; 32], [u64; 4]>(from)};
-        for (i,k) in self.pubkeys.iter().enumerate() {
+    pub fn find(&self, from: [u8; 32]) -> Result<usize> {
+        let fk = unsafe { transmute::<[u8; 32], [u64; 4]>(from) };
+        for (i, k) in self.pubkeys.iter().enumerate() {
             if *k == fk {
                 return Ok(i);
             }
