@@ -39,6 +39,7 @@ where
             }
             let p = Self::find(dst, i.key())?;
             *dst.get_mut(p).unwrap() = (*i).clone();
+            assert_eq!(Self::find(dst, i.key()).unwrap(), p);
         }
         Ok(())
     }
@@ -115,9 +116,9 @@ mod test {
         let mb = UsizeT::find(&m, &2usize).expect("find 2");
         assert_eq!(m[ma], 1);
         assert_eq!(m[mb], 2);
-        let mc = UsizeT::find(&v, &3usize).expect("find 3");
+        let mc = UsizeT::find(&m, &3usize).expect("find 3");
         m[mc] = 3;
-        assert_eq!(UsizeT::find(&v, &3usize).unwrap(), mc);
+        assert_eq!(UsizeT::find(&m, &3usize).unwrap(), mc);
     }
 
 }
