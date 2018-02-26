@@ -103,7 +103,7 @@ impl OTP {
                 let recv = recv_lock.lock().unwrap();
                 let timer = Duration::new(0, 500000);
                 match recv.recv_timeout(timer) {
-                    Ok(val) => func(&c_ports, val)?,
+                    Ok(val) => func(&c_ports, val).expect("otp listen"),
                     _ => (),
                 }
                 if *c_exit.lock().unwrap() == true {

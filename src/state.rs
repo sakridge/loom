@@ -22,9 +22,11 @@ impl State {
         let mut s = Self::new(v.len() * 2);
         for a in v {
             let fp = data::AccountT::find(&s.accounts, &a.from)?;
+            assert!(s.accounts[fp].from.unused());
             s.accounts[fp].balance = a.balance;
             s.accounts[fp].from = a.from;
         }
+        s.used = v.len();
         return Ok(s);
     }
     fn double(&mut self) -> Result<()> {
@@ -60,6 +62,7 @@ impl State {
                     assert_eq!(v.pld.kind, data::Kind::Transaction);
                     assert_eq!(v.pld.state, data::State::Deposited);
                 }
+                assert!(false);
                 OTP::send(p, Port::Recycle, Data::SharedMessages(m))?;
             }
             _ => (),
@@ -158,7 +161,7 @@ mod tests {
         let f = [255u8; 32];
         let list = [data::Account {from: f, balance: 2u64}];
         let s = State::from_list(&list).expect("from list");
-
+        assert_eq!(s.used, list.len());
         let fp = data::AccountT::find(&s.accounts, &f).expect("f");
         assert_eq!(s.accounts[fp].from, f);
         assert_eq!(s.accounts[fp].balance, 2u64);
