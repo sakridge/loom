@@ -23,6 +23,7 @@ impl State {
         for a in v {
             let fp = data::AccountT::find(&s.accounts, &a.from)?;
             s.accounts[fp].balance = a.balance;
+            s.accounts[fp].from = a.from;
         }
         return Ok(s);
     }
@@ -55,6 +56,10 @@ impl State {
         match d {
             Data::SharedMessages(m) => {
                 self.execute(&mut m.write().unwrap().msgs)?;
+                for v in m.read().unwrap().msgs.iter() {
+                    assert_eq!(v.pld.kind, data::Kind::Transaction);
+                    assert_eq!(v.pld.state, data::State::Deposited);
+                }
                 OTP::send(p, Port::Recycle, Data::SharedMessages(m))?;
             }
             _ => (),
@@ -62,6 +67,7 @@ impl State {
         return Ok(());
     }
     fn exec(state: &mut [data::Account], m: &mut data::Message, num_new: &mut usize) -> Result<()> {
+        assert_eq!(m.pld.kind, data::Kind::Transaction, "{:?}", m.pld.from); 
         if m.pld.kind != data::Kind::Transaction {
             return Ok(());
         }
@@ -79,12 +85,13 @@ impl State {
         }
         Self::new_account(&to, num_new);
         Self::deposit(&mut to, m);
+        assert_eq!(m.pld.state, data::State::Deposited, "{:?}", m.pld.from); 
         Ok(())
     }
-    fn execute(&mut self, msgs: &mut [data::Message]) -> Result<()> {
-        let mut num_new = 0;
+    fn execute(&mut self, msgs: &mut [data::Message]) -> Result<()> { let mut num_new = 0;
         for mut m in msgs.iter_mut() {
             Self::exec(&mut self.accounts, &mut m, &mut num_new)?;
+            assert_eq!(m.pld.state, data::State::Deposited); 
             self.used = num_new + self.used;
             if ((4 * (self.used)) / 3) > self.accounts.len() {
                 self.double()?
@@ -146,10 +153,20 @@ mod tests {
             assert!(!m.pld.get_tx().to.unused());
         }
     }
+    #[test]
+    fn state_from_list_test() {
+        let f = [255u8; 32];
+        let list = [data::Account {from: f, balance: 2u64}];
+        let s = State::from_list(&list).expect("from list");
 
+        let fp = data::AccountT::find(&s.accounts, &f).expect("f");
+        assert_eq!(s.accounts[fp].from, f);
+        assert_eq!(s.accounts[fp].balance, 2u64);
+    }
     #[test]
     fn state_system_test() {
         const NUM: usize = 128usize;
+        let f = [255u8; 32];
         let reader = Arc::new(Reader::new(12002).expect("reader"));
         let mut o = OTP::new();
         let a_reader = reader.clone();
@@ -171,8 +188,9 @@ mod tests {
                 b_reader.recycle(d_);
                 Ok(())
             }));
-        let list = [data::Account {from: [255u8; 32], balance: NUM as u64 * 2u64}];
+        let list = [data::Account {from: f, balance: NUM as u64 * 2u64}];
         let state = Arc::new(Mutex::new(State::from_list(&list).expect("from list")));
+
         let a_state = state.clone();
         assert_eq!(Ok(()),
             o.listen(Port::State, move |p, d| a_state.lock().unwrap().run(p, d)));
