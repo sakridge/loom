@@ -8,7 +8,6 @@ use std::env;
 use std::string::String;
 use data_encoding::BASE32HEX_NOPAD;
 use loom::wallet::{EncryptedWallet, Wallet};
-use loom::data;
 use loom::net;
 use loom::result::Result;
 
@@ -30,7 +29,7 @@ fn print_usage(program: &str, opts: Options) {
 
 fn load_wallet(cfg: &Cfg, pass: String) -> Wallet {
     let ew = EncryptedWallet::from_file(&cfg.wallet).unwrap_or(EncryptedWallet::new());
-    Wallet::decrypt(ew, pass.as_bytes()).unwrap_or(Wallet::new())
+    ew.decrypt(pass.as_bytes()).unwrap_or(Wallet::new())
 }
 
 fn new_key_pair(cfg: &Cfg) {
@@ -38,7 +37,7 @@ fn new_key_pair(cfg: &Cfg) {
     let pass = rpassword::prompt_password_stdout(prompt).expect("password");
     let mut w = load_wallet(cfg, pass.clone());
     let kp = Wallet::new_keypair();
-    w.add_key_pair(kp);
+    w.add_keypair(kp);
     w.encrypt(pass.as_bytes())
         .expect("encrypt")
         .to_file(&cfg.wallet)
@@ -51,17 +50,8 @@ fn transfer(cfg: &Cfg, from: String, to: String, amnt: u64) -> Result<()> {
     let w = load_wallet(cfg, pass);
     let fpk = BASE32HEX_NOPAD.decode(from.as_bytes()).expect("from key");
     let tpk = BASE32HEX_NOPAD.decode(to.as_bytes()).expect("to key");
-    let tx = data::MessageData {
-        tx: data::Transaction {
-            to: vec_to_array(tpk),
-            amount: amnt,
-        },
-    };
-    let mut msg = data::Message::default();
-    msg.pld.from = vec_to_array(fpk);
-    msg.pld.data = tx;
-    msg.pld.kind = data::Kind::Transaction;
-    w.sign_msg(&mut msg)?;
+    let kix = w.find(vec_to_array(fpk))?;
+    let msg = w.tx(kix, vec_to_array(tpk), amnt, 1);
     let s = net::socket()?;
     s.connect(cfg.host.clone())?;
     let mut num = 0;

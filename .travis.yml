@@ -18,7 +18,7 @@ script:
 - cargo fmt -- --write-mode=diff
 - cargo build --verbose --features "$FEATURES"
 - cargo test --verbose --features "$FEATURES"
-- make itest
+- make ci
 after_success: |
   make cov
   bash <(curl -s https://codecov.io/bash) -s target/cov

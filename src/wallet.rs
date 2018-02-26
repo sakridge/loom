@@ -13,7 +13,7 @@ use rand::os::OsRng;
 
 use data;
 use result::Result;
-use result::Error::PubKeyNotFound;
+use result::Error;
 use serde_json;
 use aes;
 
@@ -51,6 +51,15 @@ impl EncryptedWallet {
         file.write_all(&d)?;
         Ok(())
     }
+    pub fn decrypt(&self, pass: &[u8]) -> Result<Wallet> {
+        let d = aes::decrypt(&self.privkeys, pass, &[])?;
+        let pks = serde_json::from_slice(&d)?;
+        let w = Wallet {
+            pubkeys: self.pubkeys.clone(),
+            privkeys: pks,
+        };
+        Ok(w)
+    }
 }
 
 impl Wallet {
@@ -60,18 +69,9 @@ impl Wallet {
             privkeys: Vec::new(),
         }
     }
-    pub fn add_key_pair(&mut self, pk: Keypair) {
+    pub fn add_keypair(&mut self, pk: Keypair) {
         self.privkeys.push(pk.0);
         self.pubkeys.push(pk.1);
-    }
-    pub fn decrypt(ew: EncryptedWallet, pass: &[u8]) -> Result<Wallet> {
-        let d = aes::decrypt(&ew.privkeys, pass, &[])?;
-        let pks = serde_json::from_slice(&d)?;
-        let w = Wallet {
-            pubkeys: ew.pubkeys,
-            privkeys: pks,
-        };
-        Ok(w)
     }
     pub fn encrypt(self, pass: &[u8]) -> Result<EncryptedWallet> {
         let pks = serde_json::to_vec(&self.privkeys)?;
@@ -92,20 +92,6 @@ impl Wallet {
         let bp = unsafe { transmute::<[u8; 32], [u64; 4]>(b) };
         (ap, bp)
     }
-
-    pub fn sign_msg(&self, msg: &mut data::Message) -> Result<()> {
-        assert!(cfg!(target_endian = "little"));
-        let ap = unsafe { transmute::<[u8; 32], [u64; 4]>(msg.pld.from) };
-        for (i, k) in self.pubkeys.iter().enumerate() {
-            if *k == ap {
-                let pk = self.privkeys[i];
-                Self::sign((pk, *k), msg);
-                return Ok(());
-            }
-        }
-        return Err(PubKeyNotFound);
-    }
-
     pub fn sign(kp: Keypair, msg: &mut data::Message) {
         let sz = size_of::<data::Payload>();
         let p = &msg.pld as *const data::Payload;
@@ -113,5 +99,46 @@ impl Wallet {
         let buf = unsafe { transmute(from_raw_parts(p as *const u8, sz)) };
         let pk = unsafe { transmute::<[u64; 8], [u8; 64]>(kp.0) };
         msg.sig = ed25519::signature(buf, &pk);
+    }
+    pub fn find(&self, from: [u8; 32]) -> Result<usize> {
+        let fk = unsafe { transmute::<[u8; 32], [u64; 4]>(from) };
+        for (i, k) in self.pubkeys.iter().enumerate() {
+            if *k == fk {
+                return Ok(i);
+            }
+        }
+        Err(Error::PubKeyNotFound)
+    }
+    pub fn tx(&self, key: usize, to: [u8; 32], amnt: u64, fee: u64) -> data::Message {
+        let data = data::MessageData {
+            tx: data::Transaction {
+                to: to,
+                amount: amnt,
+            },
+        };
+        let k = self.pubkeys[key];
+        let mut msg = data::Message::default();
+        msg.pld.from = unsafe { transmute::<[u64; 4], [u8; 32]>(k) };
+        msg.pld.fee = fee;
+        msg.pld.data = data;
+        msg.pld.kind = data::Kind::Transaction;
+        Self::sign((self.privkeys[key], self.pubkeys[key]), &mut msg);
+        msg
+    }
+    pub fn check_balance(&self, key: usize, acc: [u8; 32], fee: u64) -> data::Message {
+        let data = data::MessageData {
+            bal: data::CheckBalance {
+                key: acc,
+                amount: 0,
+            },
+        };
+        let k = self.pubkeys[key];
+        let mut msg = data::Message::default();
+        msg.pld.kind = data::Kind::CheckBalance;
+        msg.pld.from = unsafe { transmute::<[u64; 4], [u8; 32]>(k) };
+        msg.pld.fee = fee;
+        msg.pld.data = data;
+        Self::sign((self.privkeys[key], self.pubkeys[key]), &mut msg);
+        msg
     }
 }

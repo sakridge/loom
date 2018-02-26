@@ -3,6 +3,7 @@
 use data;
 use result::Result;
 use hasht::Key;
+use otp::{Data, Port, Ports, OTP};
 
 #[repr(C)]
 pub struct State {
@@ -21,8 +22,11 @@ impl State {
         let mut s = Self::new(v.len() * 2);
         for a in v {
             let fp = data::AccountT::find(&s.accounts, &a.from)?;
+            assert!(s.accounts[fp].from.unused());
             s.accounts[fp].balance = a.balance;
+            s.accounts[fp].from = a.from;
         }
+        s.used = v.len();
         return Ok(s);
     }
     fn double(&mut self) -> Result<()> {
@@ -50,8 +54,22 @@ impl State {
         let to = unsafe { ptr.offset(st as isize).as_mut().unwrap() };
         (from, to)
     }
-
+    pub fn run(&mut self, p: &Ports, d: Data) -> Result<()> {
+        match d {
+            Data::SharedMessages(m) => {
+                self.execute(&mut m.write().unwrap().msgs)?;
+                for v in m.read().unwrap().msgs.iter() {
+                    assert_eq!(v.pld.kind, data::Kind::Transaction);
+                    assert_eq!(v.pld.state, data::State::Deposited);
+                }
+                OTP::send(p, Port::Recycle, Data::SharedMessages(m))?;
+            }
+            _ => (),
+        }
+        return Ok(());
+    }
     fn exec(state: &mut [data::Account], m: &mut data::Message, num_new: &mut usize) -> Result<()> {
+        assert_eq!(m.pld.kind, data::Kind::Transaction, "{:?}", m.pld.from);
         if m.pld.kind != data::Kind::Transaction {
             return Ok(());
         }
@@ -69,17 +87,19 @@ impl State {
         }
         Self::new_account(&to, num_new);
         Self::deposit(&mut to, m);
+        assert_eq!(m.pld.state, data::State::Deposited, "{:?}", m.pld.from);
         Ok(())
     }
-    pub fn execute(&mut self, msgs: &mut [data::Message]) -> Result<()> {
-        let mut num_new = 0;
+    fn execute(&mut self, msgs: &mut [data::Message]) -> Result<()> {
         for mut m in msgs.iter_mut() {
-            Self::exec(&mut self.accounts, &mut m, &mut num_new)?;
-            self.used = num_new + self.used;
-            if ((4 * (self.used)) / 3) > self.accounts.len() {
-                self.double()?
+            let mut num_new = 0;
+            let len = self.accounts.len();
+            if self.used * 4 > len * 3 {
+                self.double()?;
             }
-            num_new = 0;
+            Self::exec(&mut self.accounts, &mut m, &mut num_new)?;
+            assert_eq!(m.pld.state, data::State::Deposited);
+            self.used += num_new;
         }
         Ok(())
     }
@@ -108,6 +128,15 @@ impl State {
 #[cfg(test)]
 mod tests {
     use state::State;
+    use reader::Reader;
+    use data;
+    use std::sync::{Arc, Mutex};
+    use net;
+    use std::net::UdpSocket;
+    use hasht::Key;
+    use otp::OTP;
+    use otp::Port;
+    use otp::Data::{SharedMessages, Signal};
 
     #[test]
     fn state_test() {
@@ -115,15 +144,6 @@ mod tests {
         let mut msgs = [];
         s.execute(&mut msgs).expect("e");
     }
-}
-
-#[cfg(all(feature = "unstable", test))]
-mod bench {
-    extern crate test;
-    use self::test::Bencher;
-    use data;
-    use state::State;
-    use hasht::Key;
 
     fn init_msgs(msgs: &mut [data::Message]) {
         for (i, m) in msgs.iter_mut().enumerate() {
@@ -134,9 +154,82 @@ mod bench {
             m.pld.fee = 1;
             m.pld.get_tx_mut().amount = 1;
             assert!(!m.pld.get_tx().to.unused());
-            //assert!(!m.pld.get_tx().from.unused());
         }
     }
+    #[test]
+    fn state_from_list_test() {
+        let f = [255u8; 32];
+        let list = [
+            data::Account {
+                from: f,
+                balance: 2u64,
+            },
+        ];
+        let s = State::from_list(&list).expect("from list");
+        assert_eq!(s.used, list.len());
+        let fp = data::AccountT::find(&s.accounts, &f).expect("f");
+        assert_eq!(s.accounts[fp].from, f);
+        assert_eq!(s.accounts[fp].balance, 2u64);
+    }
+    #[test]
+    fn state_system_test() {
+        const NUM: usize = 128usize;
+        let f = [255u8; 32];
+        let reader = Arc::new(Reader::new(12002).expect("reader"));
+        let mut o = OTP::new();
+        let a_reader = reader.clone();
+        assert_eq!(Ok(()), o.source(Port::Reader, move |p| a_reader.run(p)));
+        let b_reader = reader.clone();
+        assert_eq!(
+            Ok(()),
+            o.listen(Port::Recycle, move |p, d| {
+                let d_ = d.clone();
+                match d {
+                    SharedMessages(m) => {
+                        for v in m.read().unwrap().msgs.iter() {
+                            assert_eq!(v.pld.state, data::State::Deposited);
+                        }
+                        OTP::send(p, Port::Main, Signal)?;
+                    }
+                    _ => (),
+                }
+                b_reader.recycle(d_);
+                Ok(())
+            })
+        );
+        let list = [
+            data::Account {
+                from: f,
+                balance: NUM as u64 * 2u64,
+            },
+        ];
+        let state = Arc::new(Mutex::new(State::from_list(&list).expect("from list")));
+
+        let a_state = state.clone();
+        assert_eq!(
+            Ok(()),
+            o.listen(Port::State, move |p, d| a_state.lock().unwrap().run(p, d))
+        );
+        let cli: UdpSocket = net::socket().expect("socket");
+        cli.connect("127.0.0.1:12002").expect("client");
+        let mut msgs = [data::Message::default(); NUM];
+        init_msgs(&mut msgs);
+        let mut num = 0;
+        while num < 64 {
+            net::write(&cli, &msgs, &mut num).expect("send msgs");
+        }
+        assert_eq!(Ok(()), o.join());
+    }
+}
+
+#[cfg(all(feature = "unstable", test))]
+mod bench {
+    extern crate test;
+    use self::test::Bencher;
+    use data;
+    use state::State;
+    use state::test::init_msgs;
+    use hasht::Key;
 
     #[bench]
     fn state_bench(b: &mut Bencher) {

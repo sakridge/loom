@@ -1,5 +1,5 @@
 extern crate loom;
 
 pub fn main() {
-    loom::loomd::run();
+    loom::daemon::run();
 }
