@@ -228,9 +228,19 @@ mod bench {
     use self::test::Bencher;
     use data;
     use state::State;
-    use state::test::init_msgs;
     use hasht::Key;
 
+    fn init_msgs(msgs: &mut [data::Message]) {
+        for (i, m) in msgs.iter_mut().enumerate() {
+            m.pld.kind = data::Kind::Transaction;
+            m.pld.get_tx_mut().to = [255u8; 32];
+            m.pld.get_tx_mut().to[0] = i as u8;
+            m.pld.from = [255u8; 32];
+            m.pld.fee = 1;
+            m.pld.get_tx_mut().amount = 1;
+            assert!(!m.pld.get_tx().to.unused());
+        }
+    }
     #[bench]
     fn state_bench(b: &mut Bencher) {
         const NUM: usize = 128usize;
