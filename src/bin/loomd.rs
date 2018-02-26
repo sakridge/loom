@@ -1,5 +1,5 @@
-//extern crate loom;
-//
-//pub fn main() {
-//    loom::daemon::run();
-//}
+extern crate loom;
+
+pub fn main() {
+    loom::daemon::run();
+}
