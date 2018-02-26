@@ -1,4 +1,5 @@
-//! see test for documentation
+//! see test for usage
+//! small actor library for named channels inspired by erlang OTP
 
 use std::sync::{Arc, Mutex, RwLock};
 use std::sync::mpsc::{channel, Receiver, Sender};
