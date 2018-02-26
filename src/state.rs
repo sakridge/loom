@@ -62,7 +62,6 @@ impl State {
                     assert_eq!(v.pld.kind, data::Kind::Transaction);
                     assert_eq!(v.pld.state, data::State::Deposited);
                 }
-                assert!(false);
                 OTP::send(p, Port::Recycle, Data::SharedMessages(m))?;
             }
             _ => (),
@@ -92,18 +91,16 @@ impl State {
         Ok(())
     }
     fn execute(&mut self, msgs: &mut [data::Message]) -> Result<()> {
-        let mut num_new = 0;
         for mut m in msgs.iter_mut() {
+            let mut num_new = 0;
             let len = self.accounts.len();
             if self.used * 4 > len * 3 {
-                println!("{:?} {:?}", self.used, len);
                 self.double()?;
             }
             Self::exec(&mut self.accounts, &mut m, &mut num_new)?;
             assert_eq!(m.pld.state, data::State::Deposited); 
             self.used += num_new;
         }
-        assert!(false);
         Ok(())
     }
     fn charge(acc: &mut data::Account, m: &mut data::Message) -> () {
