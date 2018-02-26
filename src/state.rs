@@ -91,16 +91,19 @@ impl State {
         assert_eq!(m.pld.state, data::State::Deposited, "{:?}", m.pld.from); 
         Ok(())
     }
-    fn execute(&mut self, msgs: &mut [data::Message]) -> Result<()> { let mut num_new = 0;
+    fn execute(&mut self, msgs: &mut [data::Message]) -> Result<()> {
+        let mut num_new = 0;
         for mut m in msgs.iter_mut() {
+            let len = self.accounts.len();
+            if self.used * 4 > len * 3 {
+                println!("{:?} {:?}", self.used, len);
+                self.double()?;
+            }
             Self::exec(&mut self.accounts, &mut m, &mut num_new)?;
             assert_eq!(m.pld.state, data::State::Deposited); 
-            self.used = num_new + self.used;
-            if ((4 * (self.used)) / 3) > self.accounts.len() {
-                self.double()?
-            }
-            num_new = 0;
+            self.used += num_new;
         }
+        assert!(false);
         Ok(())
     }
     fn charge(acc: &mut data::Account, m: &mut data::Message) -> () {

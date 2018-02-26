@@ -99,4 +99,25 @@ mod test {
             Error::NoSpace
         );
     }
+    #[test]
+    fn hash_migrate_test() {
+        let mut v = vec![0usize; 2];
+        let a = UsizeT::find(&v, &1usize).expect("find 1");
+        v[a] = 1;
+        let b = UsizeT::find(&v, &2usize).expect("find 2");
+        assert_ne!(a, b);
+        v[b] = 2;
+        assert_eq!(UsizeT::find(&v, &1usize).unwrap(), a);
+        assert_eq!(UsizeT::find(&v, &2usize).unwrap(), b);
+        let mut m = vec![0usize; 4];
+        UsizeT::migrate(&v, &mut m).expect("migrate");
+        let ma = UsizeT::find(&m, &1usize).expect("find 1");
+        let mb = UsizeT::find(&m, &2usize).expect("find 2");
+        assert_eq!(m[ma], 1);
+        assert_eq!(m[mb], 2);
+        let mc = UsizeT::find(&v, &3usize).expect("find 3");
+        m[mc] = 3;
+        assert_eq!(UsizeT::find(&v, &3usize).unwrap(), mc);
+    }
+
 }
