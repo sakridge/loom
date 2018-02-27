@@ -22,3 +22,4 @@ pub mod gossip;
 pub mod aes;
 pub mod ledger;
 pub mod daemon;
+pub mod sender;

@@ -32,6 +32,11 @@ fn loomd(testnet: Option<String>, port: u16) -> Result<()> {
         b_reader.recycle(d);
         Ok(())
     })?;
+    let sender = Sender::new().and_then(|x| Ok(Arc::new(x)))?;
+    o.listen(Port::SendMessage, move |_p, d| {
+        sender.run(d);
+        Ok(())
+    })?;
     let a_state = state.clone();
     o.listen(Port::State, move |p, d| a_state.lock().unwrap().run(p, d))?;
     o.join()
