@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread::{spawn, JoinHandle};
 use std::time::Duration;
+use std::net::SocketAddr;
 use data;
 use result::Result;
 use result::Error;
@@ -23,6 +24,7 @@ impl Port {
             Port::Reader => 1,
             Port::State => 2,
             Port::Recycle => 3,
+            Port::SendMessage => 4,
         }
     }
 }
@@ -31,6 +33,7 @@ impl Port {
 pub enum Data {
     Signal,
     SharedMessages(data::SharedMessages),
+    SendMessage(data::Message, SocketAddr),
 }
 
 struct Locked {
@@ -52,6 +55,7 @@ impl OTP {
         let (s2, r2) = channel();
         let (s3, r3) = channel();
         let (s4, r4) = channel();
+        let (s5, r5) = channel();
         let locked = Locked {
             ports: [s1, s2, s3, s4].to_vec(),
             readers: [
@@ -59,8 +63,10 @@ impl OTP {
                 Arc::new(Mutex::new(r2)),
                 Arc::new(Mutex::new(r3)),
                 Arc::new(Mutex::new(r4)),
+                Arc::new(Mutex::new(r5)),
             ].to_vec(),
             threads: [
+                Arc::new(None),
                 Arc::new(None),
                 Arc::new(None),
                 Arc::new(None),

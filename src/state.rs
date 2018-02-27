@@ -57,22 +57,36 @@ impl State {
     pub fn run(&mut self, p: &Ports, d: Data) -> Result<()> {
         match d {
             Data::SharedMessages(m) => {
-                self.execute(&mut m.write().unwrap().msgs)?;
-                for v in m.read().unwrap().msgs.iter() {
-                    assert_eq!(v.pld.kind, data::Kind::Transaction);
-                    assert_eq!(v.pld.state, data::State::Deposited);
-                }
+                self.execute(&mut m.write().unwrap())?;
                 OTP::send(p, Port::Recycle, Data::SharedMessages(m))?;
             }
             _ => (),
         }
         return Ok(());
     }
-    fn exec(state: &mut [data::Account], m: &mut data::Message, num_new: &mut usize) -> Result<()> {
-        assert_eq!(m.pld.kind, data::Kind::Transaction, "{:?}", m.pld.from);
-        if m.pld.kind != data::Kind::Transaction {
+
+    fn balance(state: &mut [data::Account], m: &mut data::Message, addr: SockAddr) -> Result<()> {
+        assert_eq!(m.pld.kind, data::Kind::GetBalance, "{:?}", m.pld.from);
+        let sf = data::AccountT::find(&state, m.pld.from)?;
+        let mut from = state.get_unchecked_mut(pos);
+        if from.from != m.pld.from {
             return Ok(());
         }
+        if !to.from.unused() {
+            return Ok(());
+        }
+        let combined = m.pld.fee;
+        Self::charge(&mut from, combined);
+        if m.pld.state != data::State::Withdrawn {
+            return Ok(());
+        }
+        msg.pld.get_bal().amount = from.balance; 
+        OTP::send(p, Port::SendMessage, Data::SendMessage(msg, addr))?;
+        Ok(())
+    }
+
+    fn tx(state: &mut [data::Account], m: &mut data::Message, num_new: &mut usize) -> Result<()> {
+        assert_eq!(m.pld.kind, data::Kind::Transaction, "{:?}", m.pld.from);
         let pos = Self::find_accounts(state, &m.pld.from, &m.pld.get_tx().to)?;
         let (mut from, mut to) = Self::load_accounts(state, pos);
         if from.from != m.pld.from {
@@ -81,7 +95,8 @@ impl State {
         if !to.from.unused() && to.from != m.pld.get_tx().to {
             return Ok(());
         }
-        Self::charge(&mut from, m);
+        let combined = m.pld.get_tx().amount + m.pld.fee;
+        Self::charge(&mut from, combined);
         if m.pld.state != data::State::Withdrawn {
             return Ok(());
         }
@@ -90,21 +105,32 @@ impl State {
         assert_eq!(m.pld.state, data::State::Deposited, "{:?}", m.pld.from);
         Ok(())
     }
-    fn execute(&mut self, msgs: &mut [data::Message]) -> Result<()> {
-        for mut m in msgs.iter_mut() {
-            let mut num_new = 0;
-            let len = self.accounts.len();
-            if self.used * 4 > len * 3 {
-                self.double()?;
-            }
-            Self::exec(&mut self.accounts, &mut m, &mut num_new)?;
-            assert_eq!(m.pld.state, data::State::Deposited);
-            self.used += num_new;
-        }
+    fn execute(&mut self, ms: &mut data::Messages) -> Result<()> {
+        let mut total = 0;
+        ms.with(move|data, msgs|
+            for (z,a) in data.iter() {
+                for m in msgs[total .. z] {
+                    let len = self.accounts.len();
+                    if self.used * 4 > len * 3 {
+                        self.double()?;
+                    }
+                    match m.pld.kind {
+                        data::Kind::Transaction => {
+                            let mut num_new = 0;
+                            Self::tx(&mut self.accounts, &mut m, &mut num_new)?;
+                            assert_eq!(m.pld.state, data::State::Deposited);
+                            self.used += num_new;
+                        }
+                        data::Kind::GetBalance => {
+                            Self::balance(&mut self.accounts, &mut m, a)?;
+                        }
+                        _ => (),
+                    }
+                }
+            });
         Ok(())
     }
-    fn charge(acc: &mut data::Account, m: &mut data::Message) -> () {
-        let combined = m.pld.get_tx().amount + m.pld.fee;
+    fn charge(acc: &mut data::Account, combined: u64) -> () {
         if acc.balance >= combined {
             m.pld.state = data::State::Withdrawn;
             acc.balance = acc.balance - combined;
