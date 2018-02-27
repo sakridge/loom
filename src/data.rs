@@ -151,6 +151,11 @@ impl Payload {
         assert_eq!(self.kind, Kind::GetBalance);
         unsafe { &self.data.bal }
     }
+    pub fn get_bal_mut(&mut self) -> &mut GetBalance {
+        assert_eq!(self.kind, Kind::GetBalance);
+        unsafe { &mut self.data.bal }
+    }
+
 }
 
 #[derive(Copy, Clone)]

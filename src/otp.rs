@@ -15,6 +15,7 @@ pub enum Port {
     Reader,
     State,
     Recycle,
+    SendMessage,
 }
 
 impl Port {
@@ -57,7 +58,7 @@ impl OTP {
         let (s4, r4) = channel();
         let (s5, r5) = channel();
         let locked = Locked {
-            ports: [s1, s2, s3, s4].to_vec(),
+            ports: [s1, s2, s3, s4, s5].to_vec(),
             readers: [
                 Arc::new(Mutex::new(r1)),
                 Arc::new(Mutex::new(r2)),

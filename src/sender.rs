@@ -1,15 +1,14 @@
 use result::Result;
 use std::net::UdpSocket;
 use net;
-use otp::{Data, Port, Ports, OTP};
+use otp::{Data};
 
-struct Sender {
+pub struct Sender {
     s: UdpSocket,
 }
 impl Sender {
     pub fn new() -> Result<Sender> {
-        let s = net::socket()?;
-        Sender { socket: s }
+        net::socket().and_then(move |x| Ok(Sender {s:x}))
     }
 
     pub fn run(&self, d: Data) -> Result<()> {
@@ -18,7 +17,7 @@ impl Sender {
                 let msgs = [m];
                 let mut num = 0;
                 while num < 1 {
-                    net::send_to(&self.s, &msgs, &num, a)?;
+                    net::send_to(&self.s, &msgs, &mut num, a)?;
                 }
             }
             _ => (),

@@ -4,6 +4,7 @@ use data;
 use result::Result;
 use hasht::Key;
 use otp::{Data, Port, Ports, OTP};
+use std::net::SocketAddr;
 
 #[repr(C)]
 pub struct State {
@@ -57,7 +58,7 @@ impl State {
     pub fn run(&mut self, p: &Ports, d: Data) -> Result<()> {
         match d {
             Data::SharedMessages(m) => {
-                self.execute(&mut m.write().unwrap())?;
+                self.execute(p, &mut m.write().unwrap())?;
                 OTP::send(p, Port::Recycle, Data::SharedMessages(m))?;
             }
             _ => (),
@@ -65,23 +66,23 @@ impl State {
         return Ok(());
     }
 
-    fn balance(state: &mut [data::Account], m: &mut data::Message, addr: SockAddr) -> Result<()> {
+    fn get_balance(ports: &Ports, state: &mut [data::Account], m: &mut data::Message, addr: SocketAddr) -> Result<()> {
         assert_eq!(m.pld.kind, data::Kind::GetBalance, "{:?}", m.pld.from);
-        let sf = data::AccountT::find(&state, m.pld.from)?;
-        let mut from = state.get_unchecked_mut(pos);
+        let pos = data::AccountT::find(&state, &m.pld.from)?;
+        let mut from = unsafe{ state.get_unchecked_mut(pos) };
         if from.from != m.pld.from {
             return Ok(());
         }
-        if !to.from.unused() {
+        if !from.from.unused() {
             return Ok(());
         }
         let combined = m.pld.fee;
-        Self::charge(&mut from, combined);
+        Self::charge(&mut from, m, combined);
         if m.pld.state != data::State::Withdrawn {
             return Ok(());
         }
-        msg.pld.get_bal().amount = from.balance; 
-        OTP::send(p, Port::SendMessage, Data::SendMessage(msg, addr))?;
+        m.pld.get_bal_mut().amount = from.balance; 
+        OTP::send(ports, Port::SendMessage, Data::SendMessage(m.clone(), addr))?;
         Ok(())
     }
 
@@ -96,7 +97,7 @@ impl State {
             return Ok(());
         }
         let combined = m.pld.get_tx().amount + m.pld.fee;
-        Self::charge(&mut from, combined);
+        Self::charge(&mut from, m, combined);
         if m.pld.state != data::State::Withdrawn {
             return Ok(());
         }
@@ -105,11 +106,11 @@ impl State {
         assert_eq!(m.pld.state, data::State::Deposited, "{:?}", m.pld.from);
         Ok(())
     }
-    fn execute(&mut self, ms: &mut data::Messages) -> Result<()> {
+    fn execute(&mut self, p: &Ports, ms: &mut data::Messages) -> Result<()> {
         let mut total = 0;
-        ms.with(move|data, msgs|
-            for (z,a) in data.iter() {
-                for m in msgs[total .. z] {
+        ms.with(&mut |msgs: &mut Vec<data::Message>, data: &mut Vec<(usize, SocketAddr)>| {
+            for &(z,a) in data.iter() {
+                for m in msgs[total .. z].iter() {
                     let len = self.accounts.len();
                     if self.used * 4 > len * 3 {
                         self.double()?;
@@ -122,15 +123,16 @@ impl State {
                             self.used += num_new;
                         }
                         data::Kind::GetBalance => {
-                            Self::balance(&mut self.accounts, &mut m, a)?;
+                            Self::get_balance(p, &mut self.accounts, &mut m, a)?;
                         }
                         _ => (),
                     }
                 }
-            });
-        Ok(())
+            }
+            Ok(())
+        })
     }
-    fn charge(acc: &mut data::Account, combined: u64) -> () {
+    fn charge(acc: &mut data::Account, m: &mut data::Message, combined: u64) -> () {
         if acc.balance >= combined {
             m.pld.state = data::State::Withdrawn;
             acc.balance = acc.balance - combined;
@@ -167,8 +169,9 @@ mod tests {
     #[test]
     fn state_test() {
         let mut s: State = State::new(64);
-        let mut msgs = [];
-        s.execute(&mut msgs).expect("e");
+        let mut msgs = data::Messages::new();
+        let ports = vec![];
+        s.execute(&ports, &mut msgs).expect("e");
     }
 
     fn init_msgs(msgs: &mut [data::Message]) {
@@ -277,7 +280,7 @@ mod bench {
         s.accounts[fp].from = [255u8; 32];
         b.iter(|| {
             s.accounts[fp].balance = NUM as u64 * 2u64;
-            s.execute(&mut msgs).expect("execute");
+            s.execute([], &mut msgs).expect("execute");
             assert_eq!(s.accounts[fp].balance, 0);
         })
     }

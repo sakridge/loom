@@ -12,6 +12,7 @@ use getopts::Options;
 use std::env;
 use std::string::String;
 use otp::{Port, OTP};
+use sender::Sender;
 
 fn print_usage(program: &str, opts: Options) {
     let brief = format!("Usage: {} FILE [options]", program);
