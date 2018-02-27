@@ -108,9 +108,9 @@ impl State {
     }
     fn execute(&mut self, p: &Ports, ms: &mut data::Messages) -> Result<()> {
         let mut total = 0;
-        ms.with(&mut |msgs: &mut Vec<data::Message>, data: &mut Vec<(usize, SocketAddr)>| {
+        ms.with_mut(&mut |msgs: &mut Vec<data::Message>, data: &mut Vec<(usize, SocketAddr)>| {
             for &(z,a) in data.iter() {
-                for m in msgs[total .. z].iter() {
+                for m in msgs[total .. z].iter_mut() {
                     let len = self.accounts.len();
                     if self.used * 4 > len * 3 {
                         self.double()?;
@@ -118,16 +118,17 @@ impl State {
                     match m.pld.kind {
                         data::Kind::Transaction => {
                             let mut num_new = 0;
-                            Self::tx(&mut self.accounts, &mut m, &mut num_new)?;
+                            Self::tx(&mut self.accounts, m, &mut num_new)?;
                             assert_eq!(m.pld.state, data::State::Deposited);
                             self.used += num_new;
                         }
                         data::Kind::GetBalance => {
-                            Self::get_balance(p, &mut self.accounts, &mut m, a)?;
+                            Self::get_balance(p, &mut self.accounts, m, a)?;
                         }
                         _ => (),
                     }
                 }
+                total += z;
             }
             Ok(())
         })

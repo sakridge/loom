@@ -230,6 +230,13 @@ impl Messages {
     {
         f(&mut self.msgs, &mut self.data)
     }
+    pub fn with_mut<F, A>(&mut self, mut f: F) -> Result<A>
+    where
+        F: FnMut(&mut Vec<Message>, &mut Vec<(usize, SocketAddr)>) -> Result<A>,
+    {
+        f(&mut self.msgs, &mut self.data)
+    }
+
 }
 
 pub type SharedMessages = Arc<RwLock<Messages>>;
