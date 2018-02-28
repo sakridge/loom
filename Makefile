@@ -1,3 +1,5 @@
+export RUST_LOG=state=TRACE
+export RUST_BACKTRACE=1
 test:
 	cargo test
 

@@ -107,10 +107,11 @@ impl State {
         Ok(())
     }
     fn execute(&mut self, p: &Ports, ms: &mut data::Messages) -> Result<()> {
-        let mut total = 0;
         ms.with_mut(&mut |msgs: &mut Vec<data::Message>, data: &mut Vec<(usize, SocketAddr)>| {
+            let mut total = 0;
             for &(z,a) in data.iter() {
-                for m in msgs[total .. z].iter_mut() {
+                trace!("total msgs {:?} {:?} {:?} {:?}", total, z, data.len(), msgs.len());
+                for m in msgs[total .. total + z].iter_mut() {
                     let len = self.accounts.len();
                     if self.used * 4 > len * 3 {
                         self.double()?;
@@ -166,6 +167,7 @@ mod tests {
     use otp::OTP;
     use otp::Port;
     use otp::Data::{SharedMessages, Signal};
+    use env_logger;
 
     #[test]
     fn state_test() {
@@ -203,6 +205,7 @@ mod tests {
     }
     #[test]
     fn state_system_test() {
+        env_logger::init();
         const NUM: usize = 128usize;
         let f = [255u8; 32];
         let reader = Arc::new(Reader::new(12002).expect("reader"));
@@ -259,6 +262,7 @@ mod bench {
     use data;
     use state::State;
     use hasht::Key;
+
 
     fn init_msgs(msgs: &mut [data::Message]) {
         for (i, m) in msgs.iter_mut().enumerate() {
