@@ -73,7 +73,7 @@ impl State {
         if from.from != m.pld.from {
             return Ok(());
         }
-        if !from.from.unused() {
+        if from.from.unused() {
             return Ok(());
         }
         let combined = m.pld.fee;
@@ -184,7 +184,7 @@ mod tests {
             m.pld.get_tx_mut().to[0] = i as u8;
             m.pld.from = [255u8; 32];
             m.pld.fee = 1;
-            m.pld.get_tx_mut().amount = 1;
+            m.pld.get_tx_mut().amount = 2;
             assert!(!m.pld.get_tx().to.unused());
         }
     }
@@ -204,11 +204,10 @@ mod tests {
         assert_eq!(s.accounts[fp].balance, 2u64);
     }
     #[test]
-    fn state_system_test() {
-        env_logger::init();
+    fn state_send_test() {
         const NUM: usize = 128usize;
         let f = [255u8; 32];
-        let reader = Arc::new(Reader::new(12002).expect("reader"));
+        let reader = Arc::new(Reader::new(13002).expect("reader"));
         let mut o = OTP::new();
         let a_reader = reader.clone();
         assert_eq!(Ok(()), o.source(Port::Reader, move |p| a_reader.run(p)));
@@ -233,7 +232,7 @@ mod tests {
         let list = [
             data::Account {
                 from: f,
-                balance: NUM as u64 * 2u64,
+                balance: NUM as u64 * 3u64 + 2,
             },
         ];
         let state = Arc::new(Mutex::new(State::from_list(&list).expect("from list")));
@@ -243,13 +242,76 @@ mod tests {
             Ok(()),
             o.listen(Port::State, move |p, d| a_state.lock().unwrap().run(p, d))
         );
-        let cli: UdpSocket = net::socket().expect("socket");
-        cli.connect("127.0.0.1:12002").expect("client");
+        let cli: UdpSocket = net::bindall(13003).expect("socket");
+        cli.connect("127.0.0.1:13002").expect("client");
         let mut msgs = [data::Message::default(); NUM];
         init_msgs(&mut msgs);
         let mut num = 0;
         while num < 64 {
             net::write(&cli, &msgs, &mut num).expect("send msgs");
+        }
+        assert_eq!(Ok(()), o.join());
+    }
+
+    #[test]
+    fn state_balance_test() {
+        env_logger::init();
+        const NUM: usize = 128usize;
+        let reader = Arc::new(Reader::new(13002).expect("reader"));
+        let mut o = OTP::new();
+        let a_reader = reader.clone();
+        assert_eq!(Ok(()), o.source(Port::Reader, move |p| a_reader.run(p)));
+        let b_reader = reader.clone();
+        assert_eq!(
+            Ok(()),
+            o.listen(Port::Recycle, move |p, d| {
+                let d_ = d.clone();
+                match d {
+                    SharedMessages(m) => {
+                        for v in m.read().unwrap().msgs.iter() {
+                            assert_eq!(v.pld.state, data::State::Withdrawn);
+                        }
+                        OTP::send(p, Port::Main, Signal)?;
+                    }
+                    _ => (),
+                }
+                b_reader.recycle(d_);
+                Ok(())
+            })
+        );
+        let mut msgs = [data::Message::default(); NUM];
+        init_msgs(&mut msgs);
+        let list: Vec<data::Account> = msgs.iter().map(move|m|
+                data::Account {
+                    from: m.pld.get_tx().to,
+                    balance: 2,
+                }).collect();
+        let state = Arc::new(Mutex::new(State::from_list(&list).expect("from list")));
+        let a_state = state.clone();
+        assert_eq!(
+            Ok(()),
+            o.listen(Port::State, move |p, d| a_state.lock().unwrap().run(p, d))
+        );
+        let cli: UdpSocket = net::bindall(13003).expect("socket");
+        cli.connect("127.0.0.1:13002").expect("client");
+        for m in msgs.iter_mut() {
+            let mut num = 0;
+            m.pld.state = data::State::Unknown;
+            m.pld.from = m.pld.get_tx().to;
+            m.pld.kind = data::Kind::GetBalance;
+            m.pld.get_bal_mut().key = m.pld.from;
+            let mut bal = [*m];
+            while num == 0 {
+                net::write(&cli, &bal[..], &mut num).expect("send msg");
+            }
+            assert_eq!(num, 1);
+            num = 0;
+            let mut readbuf = [data::Message::default(); 64];
+            while num == 0 {
+                net::read(&cli, &mut readbuf[..], &mut num).expect("read msgs");
+            }
+            assert_eq!(num, 1);
+            assert_eq!(readbuf[0].pld.get_bal().amount, 1);
         }
         assert_eq!(Ok(()), o.join());
     }
