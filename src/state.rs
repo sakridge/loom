@@ -280,10 +280,13 @@ mod tests {
                 Ok(())
             })
         );
-        let sender = Sender::new().expect("sender");
+        let sender = Arc::new(Sender::new().expect("sender"));
         assert_eq!(
             Ok(()),
-            o.listen(Port::Sender, move |_p, d| sender.run(d) ));
+            o.listen(Port::Sender, move |_p, d| 
+                    sender.run(d)
+                )
+        );
 
         let mut msgs = [data::Message::default(); NUM];
         init_msgs(&mut msgs);
