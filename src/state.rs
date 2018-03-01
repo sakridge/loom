@@ -82,7 +82,7 @@ impl State {
             return Ok(());
         }
         m.pld.get_bal_mut().amount = from.balance; 
-        OTP::send(ports, Port::SendMessage, Data::SendMessage(m.clone(), addr))?;
+        OTP::send(ports, Port::Sender, Data::SendMessage(m.clone(), addr))?;
         Ok(())
     }
 
@@ -168,6 +168,7 @@ mod tests {
     use otp::Port;
     use otp::Data::{SharedMessages, Signal};
     use env_logger;
+    use sender::Sender;
 
     #[test]
     fn state_test() {
@@ -279,6 +280,11 @@ mod tests {
                 Ok(())
             })
         );
+        let sender = Sender::new().expect("sender");
+        assert_eq!(
+            Ok(()),
+            o.listen(Port::Sender, move |_p, d| sender.run(d) ));
+
         let mut msgs = [data::Message::default(); NUM];
         init_msgs(&mut msgs);
         let list: Vec<data::Account> = msgs.iter().map(move|m|

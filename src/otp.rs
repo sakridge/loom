@@ -15,7 +15,7 @@ pub enum Port {
     Reader,
     State,
     Recycle,
-    SendMessage,
+    Sender,
 }
 
 impl Port {
@@ -25,7 +25,7 @@ impl Port {
             Port::Reader => 1,
             Port::State => 2,
             Port::Recycle => 3,
-            Port::SendMessage => 4,
+            Port::Sender => 4,
         }
     }
 }

@@ -34,7 +34,7 @@ fn loomd(testnet: Option<String>, port: u16) -> Result<()> {
         Ok(())
     })?;
     let sender = Sender::new().and_then(|x| Ok(Arc::new(x)))?;
-    o.listen(Port::SendMessage, move |_p, d| {
+    o.listen(Port::Sender, move |_p, d| {
         sender.run(d)
     })?;
     let a_state = state.clone();
