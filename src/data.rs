@@ -155,7 +155,6 @@ impl Payload {
         assert_eq!(self.kind, Kind::GetBalance);
         unsafe { &mut self.data.bal }
     }
-
 }
 
 #[derive(Copy, Clone)]
@@ -236,7 +235,6 @@ impl Messages {
     {
         f(&mut self.msgs, &mut self.data)
     }
-
 }
 
 pub type SharedMessages = Arc<RwLock<Messages>>;
