@@ -43,7 +43,7 @@ pub struct GetLedger {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct CheckBalance {
+pub struct GetBalance {
     pub key: [u8; 32],
     pub amount: u64,
 }
@@ -55,7 +55,7 @@ pub union MessageData {
     pub poh: POH,
     pub sub: Subscriber,
     pub get: GetLedger,
-    pub bal: CheckBalance,
+    pub bal: GetBalance,
 }
 
 impl Default for MessageData {
@@ -74,7 +74,7 @@ pub enum Kind {
     Signature,
     Subscribe,
     GetLedger,
-    CheckBalance,
+    GetBalance,
 }
 
 impl Default for Kind {
@@ -147,10 +147,15 @@ impl Payload {
         assert_eq!(self.kind, Kind::GetLedger);
         unsafe { &self.data.get }
     }
-    pub fn get_bal(&self) -> &CheckBalance {
-        assert_eq!(self.kind, Kind::CheckBalance);
+    pub fn get_bal(&self) -> &GetBalance {
+        assert_eq!(self.kind, Kind::GetBalance);
         unsafe { &self.data.bal }
     }
+    pub fn get_bal_mut(&mut self) -> &mut GetBalance {
+        assert_eq!(self.kind, Kind::GetBalance);
+        unsafe { &mut self.data.bal }
+    }
+
 }
 
 #[derive(Copy, Clone)]
@@ -225,6 +230,13 @@ impl Messages {
     {
         f(&mut self.msgs, &mut self.data)
     }
+    pub fn with_mut<F, A>(&mut self, mut f: F) -> Result<A>
+    where
+        F: FnMut(&mut Vec<Message>, &mut Vec<(usize, SocketAddr)>) -> Result<A>,
+    {
+        f(&mut self.msgs, &mut self.data)
+    }
+
 }
 
 pub type SharedMessages = Arc<RwLock<Messages>>;

@@ -4,6 +4,7 @@ use data;
 use result::Result;
 use hasht::Key;
 use otp::{Data, Port, Ports, OTP};
+use std::net::SocketAddr;
 
 #[repr(C)]
 pub struct State {
@@ -57,22 +58,36 @@ impl State {
     pub fn run(&mut self, p: &Ports, d: Data) -> Result<()> {
         match d {
             Data::SharedMessages(m) => {
-                self.execute(&mut m.write().unwrap().msgs)?;
-                for v in m.read().unwrap().msgs.iter() {
-                    assert_eq!(v.pld.kind, data::Kind::Transaction);
-                    assert_eq!(v.pld.state, data::State::Deposited);
-                }
+                self.execute(p, &mut m.write().unwrap())?;
                 OTP::send(p, Port::Recycle, Data::SharedMessages(m))?;
             }
             _ => (),
         }
         return Ok(());
     }
-    fn exec(state: &mut [data::Account], m: &mut data::Message, num_new: &mut usize) -> Result<()> {
-        assert_eq!(m.pld.kind, data::Kind::Transaction, "{:?}", m.pld.from);
-        if m.pld.kind != data::Kind::Transaction {
+
+    fn get_balance(ports: &Ports, state: &mut [data::Account], m: &mut data::Message, addr: SocketAddr) -> Result<()> {
+        assert_eq!(m.pld.kind, data::Kind::GetBalance, "{:?}", m.pld.from);
+        let pos = data::AccountT::find(&state, &m.pld.from)?;
+        let mut from = unsafe{ state.get_unchecked_mut(pos) };
+        if from.from != m.pld.from {
             return Ok(());
         }
+        if from.from.unused() {
+            return Ok(());
+        }
+        let combined = m.pld.fee;
+        Self::charge(&mut from, m, combined);
+        if m.pld.state != data::State::Withdrawn {
+            return Ok(());
+        }
+        m.pld.get_bal_mut().amount = from.balance; 
+        OTP::send(ports, Port::Sender, Data::SendMessage(m.clone(), addr))?;
+        Ok(())
+    }
+
+    fn tx(state: &mut [data::Account], m: &mut data::Message, num_new: &mut usize) -> Result<()> {
+        assert_eq!(m.pld.kind, data::Kind::Transaction, "{:?}", m.pld.from);
         let pos = Self::find_accounts(state, &m.pld.from, &m.pld.get_tx().to)?;
         let (mut from, mut to) = Self::load_accounts(state, pos);
         if from.from != m.pld.from {
@@ -81,7 +96,8 @@ impl State {
         if !to.from.unused() && to.from != m.pld.get_tx().to {
             return Ok(());
         }
-        Self::charge(&mut from, m);
+        let combined = m.pld.get_tx().amount + m.pld.fee;
+        Self::charge(&mut from, m, combined);
         if m.pld.state != data::State::Withdrawn {
             return Ok(());
         }
@@ -90,21 +106,35 @@ impl State {
         assert_eq!(m.pld.state, data::State::Deposited, "{:?}", m.pld.from);
         Ok(())
     }
-    fn execute(&mut self, msgs: &mut [data::Message]) -> Result<()> {
-        for mut m in msgs.iter_mut() {
-            let mut num_new = 0;
-            let len = self.accounts.len();
-            if self.used * 4 > len * 3 {
-                self.double()?;
+    fn execute(&mut self, p: &Ports, ms: &mut data::Messages) -> Result<()> {
+        ms.with_mut(&mut |msgs: &mut Vec<data::Message>, data: &mut Vec<(usize, SocketAddr)>| {
+            let mut total = 0;
+            for &(z,a) in data.iter() {
+                trace!("total msgs {:?} {:?} {:?} {:?}", total, z, data.len(), msgs.len());
+                for m in msgs[total .. total + z].iter_mut() {
+                    let len = self.accounts.len();
+                    if self.used * 4 > len * 3 {
+                        self.double()?;
+                    }
+                    match m.pld.kind {
+                        data::Kind::Transaction => {
+                            let mut num_new = 0;
+                            Self::tx(&mut self.accounts, m, &mut num_new)?;
+                            assert_eq!(m.pld.state, data::State::Deposited);
+                            self.used += num_new;
+                        }
+                        data::Kind::GetBalance => {
+                            Self::get_balance(p, &mut self.accounts, m, a)?;
+                        }
+                        _ => (),
+                    }
+                }
+                total += z;
             }
-            Self::exec(&mut self.accounts, &mut m, &mut num_new)?;
-            assert_eq!(m.pld.state, data::State::Deposited);
-            self.used += num_new;
-        }
-        Ok(())
+            Ok(())
+        })
     }
-    fn charge(acc: &mut data::Account, m: &mut data::Message) -> () {
-        let combined = m.pld.get_tx().amount + m.pld.fee;
+    fn charge(acc: &mut data::Account, m: &mut data::Message, combined: u64) -> () {
         if acc.balance >= combined {
             m.pld.state = data::State::Withdrawn;
             acc.balance = acc.balance - combined;
@@ -137,12 +167,15 @@ mod tests {
     use otp::OTP;
     use otp::Port;
     use otp::Data::{SharedMessages, Signal};
+    use env_logger;
+    use sender::Sender;
 
     #[test]
     fn state_test() {
         let mut s: State = State::new(64);
-        let mut msgs = [];
-        s.execute(&mut msgs).expect("e");
+        let mut msgs = data::Messages::new();
+        let ports = vec![];
+        s.execute(&ports, &mut msgs).expect("e");
     }
 
     fn init_msgs(msgs: &mut [data::Message]) {
@@ -152,7 +185,7 @@ mod tests {
             m.pld.get_tx_mut().to[0] = i as u8;
             m.pld.from = [255u8; 32];
             m.pld.fee = 1;
-            m.pld.get_tx_mut().amount = 1;
+            m.pld.get_tx_mut().amount = 2;
             assert!(!m.pld.get_tx().to.unused());
         }
     }
@@ -172,10 +205,10 @@ mod tests {
         assert_eq!(s.accounts[fp].balance, 2u64);
     }
     #[test]
-    fn state_system_test() {
+    fn state_send_test() {
         const NUM: usize = 128usize;
         let f = [255u8; 32];
-        let reader = Arc::new(Reader::new(12002).expect("reader"));
+        let reader = Arc::new(Reader::new(13002).expect("reader"));
         let mut o = OTP::new();
         let a_reader = reader.clone();
         assert_eq!(Ok(()), o.source(Port::Reader, move |p| a_reader.run(p)));
@@ -200,7 +233,7 @@ mod tests {
         let list = [
             data::Account {
                 from: f,
-                balance: NUM as u64 * 2u64,
+                balance: NUM as u64 * 3u64 + 2,
             },
         ];
         let state = Arc::new(Mutex::new(State::from_list(&list).expect("from list")));
@@ -211,12 +244,82 @@ mod tests {
             o.listen(Port::State, move |p, d| a_state.lock().unwrap().run(p, d))
         );
         let cli: UdpSocket = net::socket().expect("socket");
-        cli.connect("127.0.0.1:12002").expect("client");
+        cli.connect("127.0.0.1:13002").expect("client");
         let mut msgs = [data::Message::default(); NUM];
         init_msgs(&mut msgs);
         let mut num = 0;
         while num < 64 {
             net::write(&cli, &msgs, &mut num).expect("send msgs");
+        }
+        assert_eq!(Ok(()), o.join());
+    }
+
+    #[test]
+    fn state_balance_test() {
+        env_logger::init();
+        const NUM: usize = 128usize;
+        let reader = Arc::new(Reader::new(13004).expect("reader"));
+        let mut o = OTP::new();
+        let a_reader = reader.clone();
+        assert_eq!(Ok(()), o.source(Port::Reader, move |p| a_reader.run(p)));
+        let b_reader = reader.clone();
+        assert_eq!(
+            Ok(()),
+            o.listen(Port::Recycle, move |p, d| {
+                let d_ = d.clone();
+                match d {
+                    SharedMessages(m) => {
+                        for v in m.read().unwrap().msgs.iter() {
+                            assert_eq!(v.pld.state, data::State::Withdrawn);
+                        }
+                        OTP::send(p, Port::Main, Signal)?;
+                    }
+                    _ => (),
+                }
+                b_reader.recycle(d_);
+                Ok(())
+            })
+        );
+        let sender = Arc::new(Sender::new().expect("sender"));
+        assert_eq!(
+            Ok(()),
+            o.listen(Port::Sender, move |_p, d| 
+                    sender.run(d)
+                )
+        );
+
+        let mut msgs = [data::Message::default(); NUM];
+        init_msgs(&mut msgs);
+        let list: Vec<data::Account> = msgs.iter().map(move|m|
+                data::Account {
+                    from: m.pld.get_tx().to,
+                    balance: 2,
+                }).collect();
+        let state = Arc::new(Mutex::new(State::from_list(&list).expect("from list")));
+        let a_state = state.clone();
+        assert_eq!(
+            Ok(()),
+            o.listen(Port::State, move |p, d| a_state.lock().unwrap().run(p, d))
+        );
+        let cli: UdpSocket = net::bindall(13003).expect("socket");
+        let dst = "127.0.0.1:13004".parse().expect("parse address");
+        for m in msgs.iter_mut() {
+            let mut num = 0;
+            m.pld.state = data::State::Unknown;
+            m.pld.from = m.pld.get_tx().to;
+            m.pld.kind = data::Kind::GetBalance;
+            m.pld.get_bal_mut().key = m.pld.from;
+            let mut bal = [*m];
+            while num == 0 {
+                net::send_to(&cli, &bal[..], &mut num, dst).expect("send msg");
+            }
+            assert_eq!(num, 1);
+            let mut rmsgs = data::Messages::new();
+            rmsgs.with_mut(|m,d| {
+                net::read_from(&cli, m, d)
+            }).expect("read rmsgs");
+            assert_eq!(rmsgs.data[0].0, 1);
+            assert_eq!(rmsgs.msgs[0].pld.get_bal().amount, 1);
         }
         assert_eq!(Ok(()), o.join());
     }
@@ -229,6 +332,7 @@ mod bench {
     use data;
     use state::State;
     use hasht::Key;
+
 
     fn init_msgs(msgs: &mut [data::Message]) {
         for (i, m) in msgs.iter_mut().enumerate() {
@@ -251,7 +355,7 @@ mod bench {
         s.accounts[fp].from = [255u8; 32];
         b.iter(|| {
             s.accounts[fp].balance = NUM as u64 * 2u64;
-            s.execute(&mut msgs).expect("execute");
+            s.execute([], &mut msgs).expect("execute");
             assert_eq!(s.accounts[fp].balance, 0);
         })
     }

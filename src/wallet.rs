@@ -127,14 +127,14 @@ impl Wallet {
     }
     pub fn check_balance(&self, key: usize, acc: [u8; 32], fee: u64) -> data::Message {
         let data = data::MessageData {
-            bal: data::CheckBalance {
+            bal: data::GetBalance {
                 key: acc,
                 amount: 0,
             },
         };
         let k = self.pubkeys[key];
         let mut msg = data::Message::default();
-        msg.pld.kind = data::Kind::CheckBalance;
+        msg.pld.kind = data::Kind::GetBalance;
         msg.pld.from = unsafe { transmute::<[u64; 4], [u8; 32]>(k) };
         msg.pld.fee = fee;
         msg.pld.data = data;

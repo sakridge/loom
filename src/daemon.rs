@@ -12,6 +12,7 @@ use getopts::Options;
 use std::env;
 use std::string::String;
 use otp::{Port, OTP};
+use sender::Sender;
 
 fn print_usage(program: &str, opts: Options) {
     let brief = format!("Usage: {} FILE [options]", program);
@@ -31,6 +32,10 @@ fn loomd(testnet: Option<String>, port: u16) -> Result<()> {
     o.listen(Port::Recycle, move |_p, d| {
         b_reader.recycle(d);
         Ok(())
+    })?;
+    let sender = Sender::new().and_then(|x| Ok(Arc::new(x)))?;
+    o.listen(Port::Sender, move |_p, d| {
+        sender.run(d)
     })?;
     let a_state = state.clone();
     o.listen(Port::State, move |p, d| a_state.lock().unwrap().run(p, d))?;
