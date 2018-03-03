@@ -106,18 +106,19 @@ mod tests {
             let msg = w.check_balance(0, to, 1);
             net::send_to(&s, &[msg], &mut num, addr)?;
         }
-        num = 0;
-        let mut msgs = [data::Message::default()];
-        while num < 1 {
-            net::read(s, &mut msgs, &mut num)?;
-        }
-        Ok(msgs[0].pld.get_bal().amount)
+        assert_eq!(num, 1);
+        let mut rmsgs = data::Messages::new();
+        rmsgs
+            .with_mut(|m, d| net::read_from(&s, m, d))
+            .expect("read rmsgs");
+        assert_eq!(rmsgs.data[0].0, 1);
+        Ok(rmsgs.msgs[0].pld.get_bal().amount)
     }
     fn from_pk(d: [u64;4]) -> [u8; 32] {
         unsafe { transmute::<[u64; 4], [u8; 32]>(d) }
     }
     #[test]
-    fn transaction_test_foobar() {
+    fn transaction_test() {
         let accounts = Some(String::from("testdata/test_accounts.json"));
         let port = 24567;
         let t = spawn(move || daemon::loomd(accounts, port));

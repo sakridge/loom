@@ -7,22 +7,22 @@
 extern crate crypto;
 extern crate rand;
 
-use crypto::{aes, aessafe, blockmodes, buffer, symmetriccipher};
+use crypto::{aessafe, blockmodes, buffer, symmetriccipher};
 use crypto::buffer::{BufferResult, ReadBuffer, WriteBuffer};
 use crypto::symmetriccipher::Encryptor;
 use crypto::symmetriccipher::Decryptor;
 
 pub const KEYSIZE: usize = 16;
 fn encryptor(key: &[u8], iv: &[u8]) -> Box<Encryptor + 'static>  {
-    let aes_enc = aessafe::AesSafe128Encryptor::new(key);
-    let enc = Box::new(blockmodes::CbcEncryptor::new(aes_enc, blockmodes::PkcsPadding, iv.to_vec()));
-    enc
+    let aes = aessafe::AesSafe128Encryptor::new(key);
+    let cbc = Box::new(blockmodes::CbcEncryptor::new(aes, blockmodes::PkcsPadding, iv.to_vec()));
+    cbc
 }
 
 fn decryptor(key: &[u8], iv: &[u8]) -> Box<Decryptor + 'static>  {
-    let aes_enc = aessafe::AesSafe128Decryptor::new(key);
-    let enc = Box::new(blockmodes::CbcDecryptor::new(aes_enc, blockmodes::PkcsPadding, iv.to_vec()));
-    enc
+    let aes = aessafe::AesSafe128Decryptor::new(key);
+    let cbc = Box::new(blockmodes::CbcDecryptor::new(aes, blockmodes::PkcsPadding, iv.to_vec()));
+    cbc
 }
 
 // Encrypt a buffer with the given key and iv using
