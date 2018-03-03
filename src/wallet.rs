@@ -19,13 +19,13 @@ use aes;
 
 type Keypair = ([u64; 8], [u64; 4]);
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct EncryptedWallet {
     pub pubkeys: Vec<[u64; 4]>,
     pub privkeys: Vec<u8>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct Wallet {
     pub pubkeys: Vec<[u64; 4]>,
     pub privkeys: Vec<[u64; 8]>,
@@ -150,12 +150,13 @@ mod test {
     #[test]
     fn test_decrypt() {
         let mut w = Wallet::new();
-        let kp = w.new_keypair();
+        let kp = Wallet::new_keypair();
         w.add_keypair(kp);
+        let ow = w.clone();
         let pass = "foobar".as_bytes();
-        let ew = w.encrypt(self, pass).expect("encrypted");
-        let nw = ew.decrypt(pass);
-        assert_eq!(nw, w);
+        let ew = w.encrypt(pass).expect("encrypted");
+        let nw = ew.decrypt(pass).expect("decrypted");
+        assert_eq!(nw, ow);
     }
 
 }
