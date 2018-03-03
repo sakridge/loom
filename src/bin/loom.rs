@@ -26,10 +26,12 @@ fn print_usage(program: &str, opts: Options) {
     let brief = format!("Usage: {} FILE [options]", program);
     print!("{}", opts.usage(&brief));
 }
-
+fn decrypt_wallet(cfg: &Cfg, pass: String) -> Result<Wallet> {
+    let ew = EncryptedWallet::from_file(&cfg.wallet)?;
+    ew.decrypt(pass.as_bytes())
+}
 fn load_wallet(cfg: &Cfg, pass: String) -> Wallet {
-    let ew = EncryptedWallet::from_file(&cfg.wallet).unwrap_or(EncryptedWallet::new());
-    ew.decrypt(pass.as_bytes()).expect("decrypt wallet")
+    decrypt_wallet(cfg, pass).unwrap_or(Wallet::new())
 }
 
 fn new_key_pair(cfg: &Cfg) {
