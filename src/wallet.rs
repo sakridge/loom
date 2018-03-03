@@ -145,12 +145,17 @@ impl Wallet {
 
 #[cfg(test)]
 mod test {
-    use wallet::EncrptedWallet;
+    use wallet::Wallet;
 
     #[test]
-    fn test_init() {
-        let mut o = OTP::new();
-        assert_eq!(Ok(()), o.shutdown());
+    fn test_decrypt() {
+        let mut w = Wallet::new();
+        let kp = w.new_keypair();
+        w.add_keypair(kp);
+        let pass = "foobar".as_bytes();
+        let ew = w.encrypt(self, pass).expect("encrypted");
+        let nw = ew.decrypt(pass);
+        assert_eq!(nw, w);
     }
 
 }
