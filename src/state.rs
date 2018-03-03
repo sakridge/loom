@@ -243,7 +243,7 @@ mod tests {
             Ok(()),
             o.listen(Port::State, move |p, d| a_state.lock().unwrap().run(p, d))
         );
-        let cli: UdpSocket = net::bindall(13003).expect("socket");
+        let cli: UdpSocket = net::socket().expect("socket");
         cli.connect("127.0.0.1:13002").expect("client");
         let mut msgs = [data::Message::default(); NUM];
         init_msgs(&mut msgs);
@@ -258,7 +258,7 @@ mod tests {
     fn state_balance_test() {
         env_logger::init();
         const NUM: usize = 128usize;
-        let reader = Arc::new(Reader::new(13002).expect("reader"));
+        let reader = Arc::new(Reader::new(13004).expect("reader"));
         let mut o = OTP::new();
         let a_reader = reader.clone();
         assert_eq!(Ok(()), o.source(Port::Reader, move |p| a_reader.run(p)));
@@ -302,7 +302,7 @@ mod tests {
             o.listen(Port::State, move |p, d| a_state.lock().unwrap().run(p, d))
         );
         let cli: UdpSocket = net::bindall(13003).expect("socket");
-        cli.connect("127.0.0.1:13002").expect("client");
+        let dst = "127.0.0.1:13004".parse().expect("parse address");
         for m in msgs.iter_mut() {
             let mut num = 0;
             m.pld.state = data::State::Unknown;
@@ -311,16 +311,15 @@ mod tests {
             m.pld.get_bal_mut().key = m.pld.from;
             let mut bal = [*m];
             while num == 0 {
-                net::write(&cli, &bal[..], &mut num).expect("send msg");
+                net::send_to(&cli, &bal[..], &mut num, dst).expect("send msg");
             }
             assert_eq!(num, 1);
-            num = 0;
-            let mut readbuf = [data::Message::default(); 64];
-            while num == 0 {
-                net::read(&cli, &mut readbuf[..], &mut num).expect("read msgs");
-            }
-            assert_eq!(num, 1);
-            assert_eq!(readbuf[0].pld.get_bal().amount, 1);
+            let mut rmsgs = data::Messages::new();
+            rmsgs.with_mut(|m,d| {
+                net::read_from(&cli, m, d)
+            }).expect("read rmsgs");
+            assert_eq!(rmsgs.data[0].0, 1);
+            assert_eq!(rmsgs.msgs[0].pld.get_bal().amount, 1);
         }
         assert_eq!(Ok(()), o.join());
     }
