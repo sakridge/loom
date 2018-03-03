@@ -159,6 +159,7 @@ impl Wallet {
 mod test {
     use wallet::Wallet;
     use wallet::EncryptedWallet;
+    use std::fs::remove_file;
 
     #[test]
     fn test_roundtrip() {
@@ -169,6 +170,20 @@ mod test {
         let pass = "foobar".as_bytes();
         let ew = w.encrypt(pass).expect("encrypted");
         let nw = ew.decrypt(pass).expect("decrypted");
+        assert_eq!(nw, ow);
+    }
+    #[test]
+    fn test_file() {
+        let mut w = Wallet::new();
+        let kp = Wallet::new_keypair();
+        w.add_keypair(kp);
+        let ow = w.clone();
+        let pass = "foobar".as_bytes();
+        let ew = w.encrypt(pass).expect("encrypted");
+        ew.to_file("TESTWALLET").expect("to_file");
+        let new = EncryptedWallet::from_file("TESTWALLET").expect("from_file");
+        let nw = new.decrypt(pass).expect("decrypted");
+        //remove_file("TESTWALLET").expect("remove");
         assert_eq!(nw, ow);
     }
     #[test]
