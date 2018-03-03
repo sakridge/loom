@@ -21,19 +21,25 @@ type Keypair = ([u64; 8], [u64; 4]);
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct EncryptedWallet {
+    pub iv: [u8; 16],
     pub pubkeys: Vec<[u64; 4]>,
     pub privkeys: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct Wallet {
+    pub iv: [u8; 16],
     pub pubkeys: Vec<[u64; 4]>,
     pub privkeys: Vec<[u64; 8]>,
 }
 
 impl EncryptedWallet {
     pub fn new() -> EncryptedWallet {
+        let mut rnd: OsRng = OsRng::new().unwrap();
+        let mut seed = [0u8; 16];
+        rnd.fill_bytes(&mut seed);
         EncryptedWallet {
+            iv: seed,
             pubkeys: Vec::new(),
             privkeys: Vec::new(),
         }
@@ -52,9 +58,10 @@ impl EncryptedWallet {
         Ok(())
     }
     pub fn decrypt(&self, pass: &[u8]) -> Result<Wallet> {
-        let d = aes::decrypt(&self.privkeys, pass, &[])?;
+        let d = aes::decrypt(&self.privkeys, pass, &self.iv)?;
         let pks = serde_json::from_slice(&d)?;
         let w = Wallet {
+            iv: self.iv.clone(),
             pubkeys: self.pubkeys.clone(),
             privkeys: pks,
         };
@@ -64,7 +71,11 @@ impl EncryptedWallet {
 
 impl Wallet {
     pub fn new() -> Wallet {
+        let mut rnd: OsRng = OsRng::new().unwrap();
+        let mut seed = [0u8; 16];
+        rnd.fill_bytes(&mut seed);
         Wallet {
+            iv: seed,
             pubkeys: Vec::new(),
             privkeys: Vec::new(),
         }
@@ -75,8 +86,9 @@ impl Wallet {
     }
     pub fn encrypt(self, pass: &[u8]) -> Result<EncryptedWallet> {
         let pks = serde_json::to_vec(&self.privkeys)?;
-        let e = aes::encrypt(&pks, pass, &[])?;
+        let e = aes::encrypt(&pks, pass, &self.iv)?;
         let ew = EncryptedWallet {
+            iv: self.iv.clone(),
             pubkeys: self.pubkeys,
             privkeys: e,
         };
