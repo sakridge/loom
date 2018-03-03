@@ -13,15 +13,23 @@ use crypto::symmetriccipher::Encryptor;
 use crypto::symmetriccipher::Decryptor;
 
 pub const KEYSIZE: usize = 16;
-fn encryptor(key: &[u8], iv: &[u8]) -> Box<Encryptor + 'static>  {
+fn encryptor(key: &[u8], iv: &[u8]) -> Box<Encryptor + 'static> {
     let aes = aessafe::AesSafe128Encryptor::new(key);
-    let cbc = Box::new(blockmodes::CbcEncryptor::new(aes, blockmodes::PkcsPadding, iv.to_vec()));
+    let cbc = Box::new(blockmodes::CbcEncryptor::new(
+        aes,
+        blockmodes::PkcsPadding,
+        iv.to_vec(),
+    ));
     cbc
 }
 
-fn decryptor(key: &[u8], iv: &[u8]) -> Box<Decryptor + 'static>  {
+fn decryptor(key: &[u8], iv: &[u8]) -> Box<Decryptor + 'static> {
     let aes = aessafe::AesSafe128Decryptor::new(key);
-    let cbc = Box::new(blockmodes::CbcDecryptor::new(aes, blockmodes::PkcsPadding, iv.to_vec()));
+    let cbc = Box::new(blockmodes::CbcDecryptor::new(
+        aes,
+        blockmodes::PkcsPadding,
+        iv.to_vec(),
+    ));
     cbc
 }
 
@@ -91,7 +99,6 @@ pub fn encrypt(
 // comments in that function. In non-example code, if desired, it is possible to
 // share much of the implementation using closures to hide the operation
 // being performed. However, such code would make this example less clear.
-
 
 pub fn decrypt(
     encrypted_data: &[u8],

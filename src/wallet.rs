@@ -204,4 +204,3 @@ mod test {
         assert_eq!(w.privkeys.len(), 1);
     }
 }
-

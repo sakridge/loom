@@ -99,7 +99,7 @@ mod tests {
     use std::net::UdpSocket;
     use std::mem::transmute;
 
-    fn check_balance(s: &UdpSocket, w: &wallet::Wallet, to: [u8;32]) -> Result<u64> {
+    fn check_balance(s: &UdpSocket, w: &wallet::Wallet, to: [u8; 32]) -> Result<u64> {
         let mut num = 0;
         let addr = "127.0.0.1:24567".parse().expect("parse");
         while num < 1 {
@@ -114,7 +114,7 @@ mod tests {
         assert_eq!(rmsgs.data[0].0, 1);
         Ok(rmsgs.msgs[0].pld.get_bal().amount)
     }
-    fn from_pk(d: [u64;4]) -> [u8; 32] {
+    fn from_pk(d: [u64; 4]) -> [u8; 32] {
         unsafe { transmute::<[u64; 4], [u8; 32]>(d) }
     }
     #[test]
