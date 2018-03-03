@@ -1,10 +1,10 @@
 #![cfg_attr(feature = "unstable", feature(test))]
 extern crate core;
 extern crate crypto;
+extern crate env_logger;
 extern crate getopts;
 #[macro_use]
 extern crate log;
-extern crate env_logger;
 extern crate rand;
 extern crate serde;
 #[macro_use]
