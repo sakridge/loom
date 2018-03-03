@@ -28,14 +28,19 @@ fn print_usage(program: &str, opts: Options) {
 }
 
 fn load_wallet(cfg: &Cfg, pass: String) -> Wallet {
-    let ew = EncryptedWallet::from_file(&cfg.wallet).unwrap_or(EncryptedWallet::new());
-    ew.decrypt(pass.as_bytes()).unwrap_or(Wallet::new())
+    println!("loading from {:?}", cfg.wallet);
+    match EncryptedWallet::from_file(&cfg.wallet) {
+        Ok(ew) => ew.decrypt(pass.as_bytes()).expect("decrypt wallet"),
+        _ => Wallet::new(),
+    }
 }
 
 fn new_key_pair(cfg: &Cfg) {
     let prompt = "loom wallet password: ";
     let pass = rpassword::prompt_password_stdout(prompt).expect("password");
+    println!("pass is {:?} long", pass.len());
     let mut w = load_wallet(cfg, pass.clone());
+    println!("wallet has {:?} keys", w.pubkeys.len());
     let kp = Wallet::new_keypair();
     w.add_keypair(kp);
     w.encrypt(pass.as_bytes())
@@ -62,6 +67,17 @@ fn transfer(cfg: &Cfg, from: String, to: String, amnt: u64) -> Result<()> {
 }
 
 fn balance(_addr: String) {}
+
+fn list(cfg: &Cfg) {
+    let prompt = "loom wallet password: ";
+    let pass = rpassword::prompt_password_stdout(prompt).expect("password");
+    println!("pass is {:?} long", pass.len());
+    let w = load_wallet(cfg, pass);
+    println!("wallet has {:?} keys", w.pubkeys.len());
+    for k in w.pubkeys {
+        println!("key {:?}", k);
+    }
+}
 
 pub fn main() {
     let args: Vec<String> = env::args().collect();
@@ -114,5 +130,7 @@ pub fn main() {
         let to = matches.opt_str("t").expect("missing destination address");
         balance(to);
         return;
+    } else if matches.opt_present("l") {
+        list(&cfg);
     }
 }

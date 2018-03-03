@@ -6,7 +6,6 @@ use std::mem::transmute;
 use std::mem::size_of;
 use std::io::Read;
 use std::io::Write;
-
 use crypto::ed25519;
 use rand::Rng;
 use rand::os::OsRng;
@@ -19,21 +18,29 @@ use aes;
 
 type Keypair = ([u64; 8], [u64; 4]);
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct EncryptedWallet {
+    pub len: usize,
+    pub iv: [u8; aes::KEYSIZE],
     pub pubkeys: Vec<[u64; 4]>,
     pub privkeys: Vec<u8>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct Wallet {
+    pub iv: [u8; aes::KEYSIZE],
     pub pubkeys: Vec<[u64; 4]>,
     pub privkeys: Vec<[u64; 8]>,
 }
 
 impl EncryptedWallet {
     pub fn new() -> EncryptedWallet {
+        let mut rnd: OsRng = OsRng::new().unwrap();
+        let mut seed = [0u8; aes::KEYSIZE];
+        rnd.fill_bytes(&mut seed);
         EncryptedWallet {
+            len: 0,
+            iv: seed,
             pubkeys: Vec::new(),
             privkeys: Vec::new(),
         }
@@ -51,10 +58,14 @@ impl EncryptedWallet {
         file.write_all(&d)?;
         Ok(())
     }
-    pub fn decrypt(&self, pass: &[u8]) -> Result<Wallet> {
-        let d = aes::decrypt(&self.privkeys, pass, &[])?;
+    pub fn decrypt(&self, ipass: &[u8]) -> Result<Wallet> {
+        let mut pass = Vec::from(ipass);
+        pass.resize(aes::KEYSIZE, 0);
+        let mut d = aes::decrypt(&self.privkeys, &pass, &self.iv)?;
+        d.resize(self.len, 0);
         let pks = serde_json::from_slice(&d)?;
         let w = Wallet {
+            iv: self.iv.clone(),
             pubkeys: self.pubkeys.clone(),
             privkeys: pks,
         };
@@ -64,7 +75,11 @@ impl EncryptedWallet {
 
 impl Wallet {
     pub fn new() -> Wallet {
+        let mut rnd: OsRng = OsRng::new().unwrap();
+        let mut seed = [0u8; aes::KEYSIZE];
+        rnd.fill_bytes(&mut seed);
         Wallet {
+            iv: seed,
             pubkeys: Vec::new(),
             privkeys: Vec::new(),
         }
@@ -73,10 +88,16 @@ impl Wallet {
         self.privkeys.push(pk.0);
         self.pubkeys.push(pk.1);
     }
-    pub fn encrypt(self, pass: &[u8]) -> Result<EncryptedWallet> {
-        let pks = serde_json::to_vec(&self.privkeys)?;
-        let e = aes::encrypt(&pks, pass, &[])?;
+    pub fn encrypt(self, ipass: &[u8]) -> Result<EncryptedWallet> {
+        let mut pass = Vec::from(ipass);
+        pass.resize(aes::KEYSIZE, 0);
+        let mut pks = serde_json::to_vec(&self.privkeys)?;
+        let len = pks.len();
+        pks.resize(4096, 0);
+        let e = aes::encrypt(&pks, &pass, &self.iv)?;
         let ew = EncryptedWallet {
+            len: len,
+            iv: self.iv.clone(),
             pubkeys: self.pubkeys,
             privkeys: e,
         };
@@ -140,5 +161,46 @@ impl Wallet {
         msg.pld.data = data;
         Self::sign((self.privkeys[key], self.pubkeys[key]), &mut msg);
         msg
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use wallet::Wallet;
+    use wallet::EncryptedWallet;
+    use std::fs::remove_file;
+
+    #[test]
+    fn test_roundtrip() {
+        let mut w = Wallet::new();
+        let kp = Wallet::new_keypair();
+        w.add_keypair(kp);
+        let ow = w.clone();
+        let pass = "foobar".as_bytes();
+        let ew = w.encrypt(pass).expect("encrypted");
+        let nw = ew.decrypt(pass).expect("decrypted");
+        assert_eq!(nw, ow);
+    }
+    #[test]
+    fn test_file() {
+        let mut w = Wallet::new();
+        let kp = Wallet::new_keypair();
+        w.add_keypair(kp);
+        let ow = w.clone();
+        let pass = "foobar".as_bytes();
+        let ew = w.encrypt(pass).expect("encrypted");
+        ew.to_file("TESTWALLET").expect("to_file");
+        let new = EncryptedWallet::from_file("TESTWALLET").expect("from_file");
+        let nw = new.decrypt(pass).expect("decrypted");
+        remove_file("TESTWALLET").expect("remove");
+        assert_eq!(nw, ow);
+    }
+    #[test]
+    fn test_saved() {
+        let path = "testdata/loom.wallet";
+        let ew = EncryptedWallet::from_file(&path).expect("from file");
+        let w = ew.decrypt("foobar".as_bytes()).expect("decrypt wallet");
+        assert_eq!(w.pubkeys.len(), 1);
+        assert_eq!(w.privkeys.len(), 1);
     }
 }

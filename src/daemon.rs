@@ -19,7 +19,7 @@ fn print_usage(program: &str, opts: Options) {
     print!("{}", opts.usage(&brief));
 }
 
-fn loomd(testnet: Option<String>, port: u16) -> Result<()> {
+fn loomd(testnet: Option<String>, port: u16) -> Result<OTP> {
     let state = match testnet {
         Some(f) => state_from_file(&f).and_then(|x| Ok(Arc::new(Mutex::new(x))))?,
         None => Arc::new(Mutex::new(state::State::new(1024))),
@@ -37,7 +37,7 @@ fn loomd(testnet: Option<String>, port: u16) -> Result<()> {
     o.listen(Port::Sender, move |_p, d| sender.run(d))?;
     let a_state = state.clone();
     o.listen(Port::State, move |p, d| a_state.lock().unwrap().run(p, d))?;
-    o.join()
+    return Ok(o);
 }
 
 #[derive(Deserialize, Debug)]
@@ -81,64 +81,63 @@ pub fn run() {
     if matches.opt_str("l").is_some() {
         let ports = matches.opt_str("l").expect("missing loom port");
         let port = ports.parse().expect("expecting u16 number for port");
-        loomd(matches.opt_str("t"), port).expect("loomd");
+        let mut daemon = loomd(matches.opt_str("t"), port).expect("loomd");
+        daemon.join().expect("exit daemon");
     } else {
         print_usage(&program, opts);
         return;
     }
 }
 
-//#[cfg(test)]
-//mod tests {
-//    use daemon;
-//    use net;
-//    use data;
-//    use wallet;
-//    use result::Result;
-//    use std::thread::spawn;
-//    use std::net::UdpSocket;
-//    use std::mem::transmute;
-//
-//    fn check_balance(s: &UdpSocket, w: &wallet::Wallet, to: [u8;32]) -> Result<u64> {
-//        let mut num = 0;
-//        while num < 1 {
-//            let msg = w.check_balance(0, to, 1);
-//            net::write(&s, &[msg], &mut num)?;
-//        }
-//        num = 0;
-//        let mut msgs = [data::Message::default()];
-//        while num < 1 {
-//            net::read(s, &mut msgs, &mut num)?;
-//        }
-//        Ok(msgs[0].pld.get_bal().amount)
-//    }
-//    fn from_pk(d: [u64;4]) -> [u8; 32] {
-//        unsafe { transmute::<[u64; 4], [u8; 32]>(d) }
-//    }
-//    #[test]
-//    fn transaction_test() {
-//        let accounts = &"testdata/test_accounts.json";
-//        let mut s = daemon::state_from_file(accounts).expect("load test accounts");
-//        let port = 24567;
-//        let exit = Arc::new(Mutex::new(false));
-//        let c_exit = exit.clone();
-//        let t = spawn(move || daemon::loomd(c_exit, &mut s, port));
-//        let ew = wallet::EncryptedWallet::from_file("testdata/loom.wallet").expect("test wallet");
-//        let w = ew.decrypt("foobar".as_bytes()).expect("decrypt");
-//        let from = from_pk(w.pubkeys[0]);
-//        let kp = wallet::Wallet::new_keypair();
-//        let to = from_pk(kp.1);
-//        let s = net::socket().expect("socket");
-//        s.connect("127.0.0.1:24567").expect("connect");
-//        let mut num = 0;
-//        while num < 1 {
-//            let msg = w.tx(0, to, 1000, 1);
-//            net::write(&s, &[msg], &mut num).expect("write message");
-//        }
-//        let bto = check_balance(&s, &w, to).expect("check bal to");
-//        assert_eq!(bto, 1000);
-//        let bfrom = check_balance(&s, &w, from).expect("check bal from");
-//        assert_eq!(bfrom, 1000000000 - 1001);
-//        t.join().expect("join");
-//    }
-//}
+#[cfg(test)]
+mod tests {
+    use daemon;
+    use net;
+    use data;
+    use wallet;
+    use result::Result;
+    use std::net::UdpSocket;
+    use std::mem::transmute;
+
+    fn check_balance(s: &UdpSocket, w: &wallet::Wallet, to: [u8; 32]) -> Result<u64> {
+        let mut num = 0;
+        let addr = "127.0.0.1:24567".parse().expect("parse");
+        while num < 1 {
+            let msg = w.check_balance(0, to, 1);
+            net::send_to(&s, &[msg], &mut num, addr)?;
+        }
+        assert_eq!(num, 1);
+        let mut rmsgs = data::Messages::new();
+        rmsgs
+            .with_mut(|m, d| net::read_from(&s, m, d))
+            .expect("read rmsgs");
+        assert_eq!(rmsgs.data[0].0, 1);
+        Ok(rmsgs.msgs[0].pld.get_bal().amount)
+    }
+    fn from_pk(d: [u64; 4]) -> [u8; 32] {
+        unsafe { transmute::<[u64; 4], [u8; 32]>(d) }
+    }
+    #[test]
+    fn transaction_test() {
+        let accounts = Some(String::from("testdata/test_accounts.json"));
+        let port = 24567;
+        let mut t = daemon::loomd(accounts, port).expect("daemon load");
+        let ew = wallet::EncryptedWallet::from_file("testdata/loom.wallet").expect("test wallet");
+        let w = ew.decrypt("foobar".as_bytes()).expect("decrypt");
+        let from = from_pk(w.pubkeys[0]);
+        let kp = wallet::Wallet::new_keypair();
+        let to = from_pk(kp.1);
+        let s = net::socket().expect("socket");
+        let addr = "127.0.0.1:24567".parse().expect("parse");
+        let mut num = 0;
+        while num < 1 {
+            let msg = w.tx(0, to, 1000, 1);
+            net::send_to(&s, &[msg], &mut num, addr).expect("write message");
+        }
+        let bto = check_balance(&s, &w, to).expect("check bal to");
+        assert_eq!(bto, 1000);
+        let bfrom = check_balance(&s, &w, from).expect("check bal from");
+        assert_eq!(bfrom, 1000000000 - 1003);
+        t.shutdown().expect("success");
+    }
+}

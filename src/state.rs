@@ -73,8 +73,8 @@ impl State {
         addr: SocketAddr,
     ) -> Result<()> {
         assert_eq!(m.pld.kind, data::Kind::GetBalance, "{:?}", m.pld.from);
-        let pos = data::AccountT::find(&state, &m.pld.from)?;
-        let mut from = unsafe { state.get_unchecked_mut(pos) };
+        let pos = Self::find_accounts(state, &m.pld.from, &m.pld.get_bal().key)?;
+        let (mut from, to) = Self::load_accounts(state, pos);
         if from.from != m.pld.from {
             return Ok(());
         }
@@ -86,7 +86,10 @@ impl State {
         if m.pld.state != data::State::Withdrawn {
             return Ok(());
         }
-        m.pld.get_bal_mut().amount = from.balance;
+        if to.from.unused() {
+            return Ok(());
+        }
+        m.pld.get_bal_mut().amount = to.balance;
         OTP::send(ports, Port::Sender, Data::SendMessage(m.clone(), addr))?;
         Ok(())
     }
