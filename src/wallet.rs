@@ -158,9 +158,10 @@ impl Wallet {
 #[cfg(test)]
 mod test {
     use wallet::Wallet;
+    use wallet::EncryptedWallet;
 
     #[test]
-    fn test_decrypt() {
+    fn test_roundtrip() {
         let mut w = Wallet::new();
         let kp = Wallet::new_keypair();
         w.add_keypair(kp);
@@ -170,6 +171,11 @@ mod test {
         let nw = ew.decrypt(pass).expect("decrypted");
         assert_eq!(nw, ow);
     }
-
+    #[test]
+    fn test_saved() {
+        let path = "testdata/loom.wallet";
+        let ew = EncryptedWallet::from_file(&path).expect("from file");
+        let _w = ew.decrypt("foobar".as_bytes()).expect("decrypt wallet");
+    }
 }
 

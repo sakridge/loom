@@ -122,7 +122,7 @@ mod tests {
         let port = 24567;
         let t = spawn(move || daemon::loomd(accounts, port));
         let ew = wallet::EncryptedWallet::from_file("testdata/loom.wallet").expect("test wallet");
-        let w = ew.decrypt("foobar\0".as_bytes()).expect("decrypt");
+        let w = ew.decrypt("foobar".as_bytes()).expect("decrypt");
         let from = from_pk(w.pubkeys[0]);
         let kp = wallet::Wallet::new_keypair();
         let to = from_pk(kp.1);
