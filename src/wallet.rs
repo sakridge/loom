@@ -142,3 +142,16 @@ impl Wallet {
         msg
     }
 }
+
+#[cfg(test)]
+mod test {
+    use wallet::EncrptedWallet;
+
+    #[test]
+    fn test_init() {
+        let mut o = OTP::new();
+        assert_eq!(Ok(()), o.shutdown());
+    }
+
+}
+

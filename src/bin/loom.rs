@@ -29,13 +29,15 @@ fn print_usage(program: &str, opts: Options) {
 
 fn load_wallet(cfg: &Cfg, pass: String) -> Wallet {
     let ew = EncryptedWallet::from_file(&cfg.wallet).unwrap_or(EncryptedWallet::new());
-    ew.decrypt(pass.as_bytes()).unwrap_or(Wallet::new())
+    ew.decrypt(pass.as_bytes()).expect("decrypt wallet")
 }
 
 fn new_key_pair(cfg: &Cfg) {
     let prompt = "loom wallet password: ";
     let pass = rpassword::prompt_password_stdout(prompt).expect("password");
+    println!("pass is {:?} long", pass.len());
     let mut w = load_wallet(cfg, pass.clone());
+    println!("wallet has {:?} keys", w.pubkeys.len());
     let kp = Wallet::new_keypair();
     w.add_keypair(kp);
     w.encrypt(pass.as_bytes())
