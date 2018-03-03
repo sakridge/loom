@@ -25,9 +25,7 @@ help_t:release
 	./target/release/loom -h
 
 wallet_t:release
-	rm -rf loom.wallet
-	echo foo | ./target/release/loom -c
-	rm loom.wallet
+	echo foobar | ./target/release/loom -l -W testdata/loom.wallet
 
 
 testacc_t:release
