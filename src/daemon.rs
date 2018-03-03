@@ -19,7 +19,7 @@ fn print_usage(program: &str, opts: Options) {
     print!("{}", opts.usage(&brief));
 }
 
-fn loomd(testnet: Option<String>, port: u16) -> Result<()> {
+fn loomd(testnet: Option<String>, port: u16) -> Result<OTP> {
     let state = match testnet {
         Some(f) => state_from_file(&f).and_then(|x| Ok(Arc::new(Mutex::new(x))))?,
         None => Arc::new(Mutex::new(state::State::new(1024))),
@@ -37,7 +37,7 @@ fn loomd(testnet: Option<String>, port: u16) -> Result<()> {
     o.listen(Port::Sender, move |_p, d| sender.run(d))?;
     let a_state = state.clone();
     o.listen(Port::State, move |p, d| a_state.lock().unwrap().run(p, d))?;
-    o.join()
+    return Ok(o);
 }
 
 #[derive(Deserialize, Debug)]
@@ -81,7 +81,8 @@ pub fn run() {
     if matches.opt_str("l").is_some() {
         let ports = matches.opt_str("l").expect("missing loom port");
         let port = ports.parse().expect("expecting u16 number for port");
-        loomd(matches.opt_str("t"), port).expect("loomd");
+        let mut daemon = loomd(matches.opt_str("t"), port).expect("loomd");
+        daemon.join().expect("exit daemon");
     } else {
         print_usage(&program, opts);
         return;
@@ -95,7 +96,6 @@ mod tests {
     use data;
     use wallet;
     use result::Result;
-    use std::thread::spawn;
     use std::net::UdpSocket;
     use std::mem::transmute;
 
@@ -121,7 +121,7 @@ mod tests {
     fn transaction_test() {
         let accounts = Some(String::from("testdata/test_accounts.json"));
         let port = 24567;
-        let t = spawn(move || daemon::loomd(accounts, port));
+        let mut t = daemon::loomd(accounts, port).expect("daemon load");
         let ew = wallet::EncryptedWallet::from_file("testdata/loom.wallet").expect("test wallet");
         let w = ew.decrypt("foobar".as_bytes()).expect("decrypt");
         let from = from_pk(w.pubkeys[0]);
@@ -137,7 +137,7 @@ mod tests {
         let bto = check_balance(&s, &w, to).expect("check bal to");
         assert_eq!(bto, 1000);
         let bfrom = check_balance(&s, &w, from).expect("check bal from");
-        assert_eq!(bfrom, 1000000000 - 1001);
-        t.join().expect("join").expect("success");
+        assert_eq!(bfrom, 1000000000 - 1003);
+        t.shutdown().expect("success");
     }
 }
