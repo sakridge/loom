@@ -1,7 +1,7 @@
 export RUST_LOG=state=TRACE
 export RUST_BACKTRACE=1
 test:
-	cargo test
+	cargo test roundtrip
 
 ci:release help_t testacc_t wallet_t
 

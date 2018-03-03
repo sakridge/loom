@@ -7,8 +7,23 @@
 extern crate crypto;
 extern crate rand;
 
-use crypto::{aes, blockmodes, buffer, symmetriccipher};
+use crypto::{aes, aessafe, blockmodes, buffer, symmetriccipher};
 use crypto::buffer::{BufferResult, ReadBuffer, WriteBuffer};
+use crypto::symmetriccipher::Encryptor;
+use crypto::symmetriccipher::Decryptor;
+
+pub const KEYSIZE: usize = 16;
+fn encryptor(key: &[u8], iv: &[u8]) -> Box<Encryptor + 'static>  {
+    let aes_enc = aessafe::AesSafe128Encryptor::new(key);
+    let enc = Box::new(blockmodes::CbcEncryptor::new(aes_enc, blockmodes::PkcsPadding, iv.to_vec()));
+    enc
+}
+
+fn decryptor(key: &[u8], iv: &[u8]) -> Box<Decryptor + 'static>  {
+    let aes_enc = aessafe::AesSafe128Decryptor::new(key);
+    let enc = Box::new(blockmodes::CbcDecryptor::new(aes_enc, blockmodes::PkcsPadding, iv.to_vec()));
+    enc
+}
 
 // Encrypt a buffer with the given key and iv using
 // AES-256/CBC/Pkcs encryption.
@@ -19,8 +34,7 @@ pub fn encrypt(
 ) -> Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
     // Create an encryptor instance of the best performing
     // type available for the platform.
-    let mut encryptor =
-        aes::cbc_encryptor(aes::KeySize::KeySize256, key, iv, blockmodes::PkcsPadding);
+    let mut encryptor = encryptor(key, iv);
 
     // Each encryption operation encrypts some data from
     // an input buffer into an output buffer. Those buffers
@@ -77,14 +91,14 @@ pub fn encrypt(
 // comments in that function. In non-example code, if desired, it is possible to
 // share much of the implementation using closures to hide the operation
 // being performed. However, such code would make this example less clear.
+
+
 pub fn decrypt(
     encrypted_data: &[u8],
     key: &[u8],
     iv: &[u8],
 ) -> Result<Vec<u8>, symmetriccipher::SymmetricCipherError> {
-    let mut decryptor =
-        aes::cbc_decryptor(aes::KeySize::KeySize256, key, iv, blockmodes::PkcsPadding);
-
+    let mut decryptor = decryptor(key, iv);
     let mut final_result = Vec::<u8>::new();
     let mut read_buffer = buffer::RefReadBuffer::new(encrypted_data);
     let mut buffer = [0; 4096];
