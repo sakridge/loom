@@ -21,6 +21,7 @@ type Keypair = ([u64; 8], [u64; 4]);
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct EncryptedWallet {
+    pub len: usize,
     pub iv: [u8; 16],
     pub pubkeys: Vec<[u64; 4]>,
     pub privkeys: Vec<u8>,
@@ -39,6 +40,7 @@ impl EncryptedWallet {
         let mut seed = [0u8; 16];
         rnd.fill_bytes(&mut seed);
         EncryptedWallet {
+            len: 0,
             iv: seed,
             pubkeys: Vec::new(),
             privkeys: Vec::new(),
@@ -58,7 +60,8 @@ impl EncryptedWallet {
         Ok(())
     }
     pub fn decrypt(&self, pass: &[u8]) -> Result<Wallet> {
-        let d = aes::decrypt(&self.privkeys, pass, &self.iv)?;
+        let mut d = aes::decrypt(&self.privkeys, pass, &self.iv)?;
+        d.resize(self.len, 0);
         let pks = serde_json::from_slice(&d)?;
         let w = Wallet {
             iv: self.iv.clone(),
@@ -85,9 +88,14 @@ impl Wallet {
         self.pubkeys.push(pk.1);
     }
     pub fn encrypt(self, pass: &[u8]) -> Result<EncryptedWallet> {
-        let pks = serde_json::to_vec(&self.privkeys)?;
+        let mut pks = serde_json::to_vec(&self.privkeys)?;
+        let len = pks.len();
+        if pks.len() < 4096 {
+            pks.resize(4096, 0);
+        }
         let e = aes::encrypt(&pks, pass, &self.iv)?;
         let ew = EncryptedWallet {
+            len: len,
             iv: self.iv.clone(),
             pubkeys: self.pubkeys,
             privkeys: e,

@@ -117,7 +117,7 @@ mod tests {
         unsafe { transmute::<[u64; 4], [u8; 32]>(d) }
     }
     #[test]
-    fn transaction_test() {
+    fn transaction_test_foobar() {
         let accounts = Some(String::from("testdata/test_accounts.json"));
         let port = 24567;
         let t = spawn(move || daemon::loomd(accounts, port));
