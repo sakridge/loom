@@ -183,7 +183,7 @@ mod test {
         ew.to_file("TESTWALLET").expect("to_file");
         let new = EncryptedWallet::from_file("TESTWALLET").expect("from_file");
         let nw = new.decrypt(pass).expect("decrypted");
-        //remove_file("TESTWALLET").expect("remove");
+        remove_file("TESTWALLET").expect("remove");
         assert_eq!(nw, ow);
     }
     #[test]
