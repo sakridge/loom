@@ -116,6 +116,11 @@ mod tests {
         unsafe { transmute::<[u64; 4], [u8; 32]>(d) }
     }
     #[test]
+    fn help_test() {
+        assert_eq!(daemon::run(vec!["loomd".into(), "-h".into()]), None);
+        assert_eq!(daemon::run(vec!["loomd".into()]), None);
+    }
+    #[test]
     fn transaction_test() {
         let args = vec!["loomd".into(), "-l".into(),
                         "24567".into(), "-t".into(),
