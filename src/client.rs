@@ -2,7 +2,7 @@ use rpassword;
 use getopts::Options;
 use std::string::String;
 use data_encoding::BASE32HEX_NOPAD;
-use wallet::{EncryptedWallet, Wallet};
+use wallet::{EncryptedWallet, Wallet, to32b};
 use net;
 use result::Result;
 
@@ -70,7 +70,8 @@ fn list(cfg: &Cfg) {
     let w = load_wallet(cfg, pass);
     println!("wallet has {:?} keys", w.pubkeys.len());
     for k in w.pubkeys {
-        println!("key {:?}", k);
+        let pretty = BASE32HEX_NOPAD.encode(&to32b(k));
+        println!("key {:?}", pretty);
     }
 }
 
