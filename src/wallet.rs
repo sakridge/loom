@@ -74,8 +74,6 @@ pub fn from64b(k: [u8; 64]) -> [u64; 8] {
     unsafe { transmute::<[u8; 64], [u64; 8]>(k) }
 }
 
-
-
 impl Wallet {
     pub fn new() -> Wallet {
         let mut rnd: OsRng = OsRng::new().unwrap();
@@ -170,7 +168,6 @@ mod test {
     use wallet::to32b;
     use wallet::EncryptedWallet;
     use std::fs::remove_file;
-
 
     #[test]
     fn test_roundtrip() {
