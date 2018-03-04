@@ -10,6 +10,8 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
+extern crate rpassword;
+extern crate data_encoding;
 
 pub mod net;
 pub mod data;
@@ -24,3 +26,4 @@ pub mod aes;
 pub mod ledger;
 pub mod daemon;
 pub mod sender;
+pub mod client;
