@@ -1,11 +1,13 @@
 #![cfg_attr(feature = "unstable", feature(test))]
 extern crate core;
 extern crate crypto;
+extern crate data_encoding;
 extern crate env_logger;
 extern crate getopts;
 #[macro_use]
 extern crate log;
 extern crate rand;
+extern crate rpassword;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
@@ -24,3 +26,4 @@ pub mod aes;
 pub mod ledger;
 pub mod daemon;
 pub mod sender;
+pub mod client;
