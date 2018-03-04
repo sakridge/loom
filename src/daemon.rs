@@ -117,8 +117,8 @@ mod tests {
     }
     #[test]
     fn help_test() {
-        assert_eq!(daemon::run(vec!["loomd".into(), "-h".into()]), None);
-        assert_eq!(daemon::run(vec!["loomd".into()]), None);
+        assert!(daemon::run(vec!["loomd".into(), "-h".into()]).is_none());
+        assert!(daemon::run(vec!["loomd".into()]).is_none());
     }
     #[test]
     fn transaction_test() {
