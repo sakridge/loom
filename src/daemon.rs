@@ -9,7 +9,6 @@ use reader::Reader;
 use std::fs::File;
 use std::mem::transmute;
 use getopts::Options;
-use std::env;
 use std::string::String;
 use otp::{Port, OTP};
 use sender::Sender;
@@ -63,8 +62,7 @@ fn state_from_file(f: &str) -> Result<state::State> {
     state::State::from_list(&acc)
 }
 
-pub fn run() {
-    let args: Vec<String> = env::args().collect();
+pub fn run(args: Vec<String>) -> Option<OTP> {
     let program = args[0].clone();
     let mut opts = Options::new();
     opts.optflag("h", "help", "print this help menu");
@@ -81,12 +79,12 @@ pub fn run() {
     if matches.opt_str("l").is_some() {
         let ports = matches.opt_str("l").expect("missing loom port");
         let port = ports.parse().expect("expecting u16 number for port");
-        let mut daemon = loomd(matches.opt_str("t"), port).expect("loomd");
-        daemon.join().expect("exit daemon");
+        let daemon = loomd(matches.opt_str("t"), port).expect("loomd");
+        return Some(daemon) 
     } else {
         print_usage(&program, opts);
-        return;
     }
+    return None;
 }
 
 #[cfg(test)]
@@ -119,9 +117,10 @@ mod tests {
     }
     #[test]
     fn transaction_test() {
-        let accounts = Some(String::from("testdata/test_accounts.json"));
-        let port = 24567;
-        let mut t = daemon::loomd(accounts, port).expect("daemon load");
+        let args = vec!["loomd".into(), "-l".into(),
+                        "24567".into(), "-t".into(),
+                        "testdata/test_accounts.json".into()];
+        let mut t = daemon::run(args).expect("daemon load");
         let ew = wallet::EncryptedWallet::from_file("testdata/loom.wallet").expect("test wallet");
         let w = ew.decrypt("foobar".as_bytes()).expect("decrypt");
         let from = from_pk(w.pubkeys[0]);
