@@ -80,7 +80,7 @@ pub fn run(args: Vec<String>) -> Option<OTP> {
         let ports = matches.opt_str("l").expect("missing loom port");
         let port = ports.parse().expect("expecting u16 number for port");
         let daemon = loomd(matches.opt_str("t"), port).expect("loomd");
-        return Some(daemon) 
+        return Some(daemon);
     } else {
         print_usage(&program, opts);
     }
@@ -122,9 +122,13 @@ mod tests {
     }
     #[test]
     fn transaction_test() {
-        let args = vec!["loomd".into(), "-l".into(),
-                        "24567".into(), "-t".into(),
-                        "testdata/test_accounts.json".into()];
+        let args = vec![
+            "loomd".into(),
+            "-l".into(),
+            "24567".into(),
+            "-t".into(),
+            "testdata/test_accounts.json".into(),
+        ];
         let mut t = daemon::run(args).expect("daemon load");
         let ew = wallet::EncryptedWallet::from_file("testdata/loom.wallet").expect("test wallet");
         let w = ew.decrypt("foobar".as_bytes()).expect("decrypt");
