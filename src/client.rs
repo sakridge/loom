@@ -177,4 +177,17 @@ mod tests {
         ];
         client::run(args, pass());
     }
+    #[test]
+    fn list_tx() {
+        let args = vec![
+            "loom".into(),
+            "-W".into(),
+            "testdata/loom.wallet".into(),
+            "-H".into(),
+            "127.0.0.1:14345".into(),
+            "-t".into(),
+        ];
+        client::run(args, pass());
+    }
+
 }

@@ -21,16 +21,6 @@ pub enum Error {
     PubKeyNotFound,
 }
 
-//impl PartialEq for Error {
-//    fn eq(&self, other: &Self) -> bool {
-//        match (self, other) {
-//            (&Error::NoSpace, &Error::NoSpace) => true,
-//            (&Error::ToLarge, &Error::ToLarge) => true,
-//            _ => false,
-//        }
-//    }
-//}
-
 pub type Result<T> = core::result::Result<T, Error>;
 
 pub fn from_option<T>(r: Option<T>) -> Result<T> {
