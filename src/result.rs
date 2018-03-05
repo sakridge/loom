@@ -69,6 +69,7 @@ mod tests {
     use crypto::symmetriccipher::SymmetricCipherError::InvalidPadding;
     use std::thread;
     use std::io;
+    use std::io::Write;
 
     fn addr_parse_error() -> Result<SocketAddr> {
         let r = "12fdfasfsafsadfs".parse()?;
@@ -89,4 +90,13 @@ mod tests {
         let ioe = io::Error::new(io::ErrorKind::NotFound, "hi");
         assert_matches!(Error::from(ioe), Error::IO(_));
     }
+    #[test]
+    fn fmt_test() {
+        write!(io::sink(), "{:?}", addr_parse_error()).unwrap();
+        write!(io::sink(), "{:?}", Error::from(InvalidPadding)).unwrap();
+        write!(io::sink(), "{:?}", Error::from(RecvError {})).unwrap();
+        write!(io::sink(), "{:?}", join_error()).unwrap();
+        write!(io::sink(), "{:?}", Error::from(io::Error::new(io::ErrorKind::NotFound, "hi"))).unwrap();
+    }
+
 }
