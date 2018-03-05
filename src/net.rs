@@ -73,7 +73,7 @@ pub fn read(socket: &UdpSocket, messages: &mut [Message], num: &mut usize) -> Re
     while *num < max {
         let p = &mut messages[*num] as *mut Message;
         if (max - *num) * sz < MAX_PACKET {
-            return Ok(());
+            break;
         }
         assert!(cfg!(target_endian = "little"));
         let buf = unsafe { transmute(from_raw_parts(p as *mut u8, MAX_PACKET)) };
