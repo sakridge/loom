@@ -164,8 +164,10 @@ mod tests {
     }
     #[test]
     fn list_test() {
-        let args = vec!["loom".into(), "-W".into(),
-                        "testdata/loom.wallet".into()];
+        let args = vec!["loom".into(),
+                        "-W".into(), "testdata/loom.wallet".into(),
+                        "-H".into(), "127.0.0.1:12345".into(),
+                        "-l".into()];
         client::run(args, pass());
     }
 }
