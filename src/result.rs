@@ -69,18 +69,3 @@ impl core::convert::From<std::net::AddrParseError> for Error {
         Error::AddrParse(e)
     }
 }
-//pub fn retry<F, T>(r: &mut Result<T>,  op: F) -> ()
-//    where F: Fn() -> Result<T>
-//{
-//	loop {
-//    	*r = op();
-//		let c = match r {
-//            &mut Err(Error::IO(e)) => e.raw_os_error(),
-//            _ => None
-//        };
-//		match c {
-//			Some(11) => (),
-//			_ => return ()
-//		};
-//	}
-//}
