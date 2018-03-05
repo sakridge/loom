@@ -179,6 +179,22 @@ mod tests {
         ];
         client::run(args, pass());
     }
+
+    #[test]
+    fn balance_test() {
+        let addr: String = "UFC5KNCKS6KMC7VDIBVJ4R3IIJ0RLQL8VSVOAO4GQSMAV1QIPFP0====".into();
+        let args = vec![
+            "loom".into(),
+            "-W".into(),
+            "testdata/loom.wallet".into(),
+            "-H".into(),
+            "127.0.0.1:12345".into(),
+            "-b".into(),
+            "-t".into(), addr
+        ];
+        client::run(args, pass());
+    }
+
     #[test]
     fn tx_test() {
         let args = vec![
