@@ -279,22 +279,20 @@ mod tests {
         let a_reader = reader.clone();
         assert!(o.source(Port::Reader, move |p| a_reader.run(p)).is_ok());
         let b_reader = reader.clone();
-        assert!(
-            o.listen(Port::Recycle, move |p, d| {
-                let d_ = d.clone();
-                match d {
-                    SharedMessages(m) => {
-                        for v in m.read().unwrap().msgs.iter() {
-                            assert_eq!(v.pld.state, data::State::Withdrawn);
-                        }
-                        OTP::send(p, Port::Main, Signal)?;
+        assert!(o.listen(Port::Recycle, move |p, d| {
+            let d_ = d.clone();
+            match d {
+                SharedMessages(m) => {
+                    for v in m.read().unwrap().msgs.iter() {
+                        assert_eq!(v.pld.state, data::State::Withdrawn);
                     }
-                    _ => (),
+                    OTP::send(p, Port::Main, Signal)?;
                 }
-                b_reader.recycle(d_);
-                Ok(())
-            }).is_ok()
-        );
+                _ => (),
+            }
+            b_reader.recycle(d_);
+            Ok(())
+        }).is_ok());
         let sender = Arc::new(Sender::new().expect("sender"));
         assert!(o.listen(Port::Sender, move |_p, d| sender.run(d)).is_ok());
 
@@ -309,7 +307,8 @@ mod tests {
         let state = Arc::new(Mutex::new(State::from_list(&list).expect("from list")));
         let a_state = state.clone();
         assert!(
-            o.listen(Port::State, move |p, d| a_state.lock().unwrap().run(p, d)).is_ok()
+            o.listen(Port::State, move |p, d| a_state.lock().unwrap().run(p, d))
+                .is_ok()
         );
         let cli: UdpSocket = net::bindall(13003).expect("socket");
         let dst = "127.0.0.1:13004".parse().expect("parse address");

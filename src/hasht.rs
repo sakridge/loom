@@ -95,7 +95,10 @@ mod test {
         assert_eq!(UsizeT::find(&v, &1usize).unwrap(), a);
         assert_eq!(UsizeT::find(&v, &2usize).unwrap(), b);
         assert_matches!(UsizeT::find(&v, &3usize).unwrap_err(), Error::NoSpace);
-        assert_matches!(UsizeT::find(&v, &usize::max_value()).unwrap_err(), Error::NoSpace);
+        assert_matches!(
+            UsizeT::find(&v, &usize::max_value()).unwrap_err(),
+            Error::NoSpace
+        );
     }
     #[test]
     fn hash_migrate_test() {

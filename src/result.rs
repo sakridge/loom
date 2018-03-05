@@ -81,7 +81,7 @@ mod tests {
     use std::io;
 
     fn addr_parse_error() -> Result<SocketAddr> {
-        let r = "12fdfasfsafsadfs".parse()?; 
+        let r = "12fdfasfsafsadfs".parse()?;
         return Ok(r);
     }
 
