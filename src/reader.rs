@@ -20,7 +20,7 @@ impl Reader {
         //TODO(anatoly): we need to dup this so we can properly respond to
         //connected udp sockets.  need to find a crate that has win32 and
         //unix dup
-        let sock = unsafe { 
+        let sock = unsafe {
             let fd = self.sock.as_raw_fd();
             let nfd = dup(fd)?;
             UdpSocket::from_raw_fd(nfd)

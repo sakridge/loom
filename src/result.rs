@@ -67,7 +67,6 @@ impl core::convert::From<nix::Error> for Error {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use result::Result;
