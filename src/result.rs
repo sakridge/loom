@@ -21,16 +21,6 @@ pub enum Error {
     PubKeyNotFound,
 }
 
-impl PartialEq for Error {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (&Error::NoSpace, &Error::NoSpace) => true,
-            (&Error::ToLarge, &Error::ToLarge) => true,
-            _ => false,
-        }
-    }
-}
-
 pub type Result<T> = core::result::Result<T, Error>;
 
 pub fn from_option<T>(r: Option<T>) -> Result<T> {
@@ -80,9 +70,9 @@ mod tests {
     use std::thread;
     use std::io;
 
-    fn addr_parse_error() -> Result<()> {
-        let _r1: SocketAddr = "12fdfasfsafsadfs".parse()?;
-        return Ok(());
+    fn addr_parse_error() -> Result<SocketAddr> {
+        let r = "12fdfasfsafsadfs".parse()?;
+        return Ok(r);
     }
 
     fn join_error() -> Result<()> {
