@@ -12,7 +12,8 @@ struct Cfg {
 }
 
 fn getpass<T>(r: Option<T>) -> String
-where T: ::std::io::BufRead
+where
+    T: ::std::io::BufRead,
 {
     println!("loom wallet password: ");
     let pass = rpassword::read_password_with_reader(r).expect("read password");
@@ -31,8 +32,7 @@ fn print_usage(program: &str, opts: Options) {
     print!("{}", opts.usage(&brief));
 }
 
-fn load_wallet(cfg: &Cfg, pass: String) -> Wallet
-{
+fn load_wallet(cfg: &Cfg, pass: String) -> Wallet {
     println!("loading from {:?}", cfg.wallet);
     match EncryptedWallet::from_file(&cfg.wallet) {
         Ok(ew) => ew.decrypt(pass.as_bytes()).expect("decrypt wallet"),
@@ -40,9 +40,9 @@ fn load_wallet(cfg: &Cfg, pass: String) -> Wallet
     }
 }
 
-
 fn new_key_pair<T>(cfg: &Cfg, r: Option<T>)
-    where T: ::std::io::BufRead 
+where
+    T: ::std::io::BufRead,
 {
     let pass = getpass(r);
     let mut w = load_wallet(cfg, pass.clone());
@@ -56,7 +56,8 @@ fn new_key_pair<T>(cfg: &Cfg, r: Option<T>)
 }
 
 fn transfer<T>(cfg: &Cfg, r: Option<T>, from: String, to: String, amnt: u64) -> Result<()>
-    where T: ::std::io::BufRead 
+where
+    T: ::std::io::BufRead,
 {
     let pass = getpass(r);
     let w = load_wallet(cfg, pass);
@@ -76,7 +77,8 @@ fn transfer<T>(cfg: &Cfg, r: Option<T>, from: String, to: String, amnt: u64) -> 
 fn balance(_addr: String) {}
 
 fn list<T>(cfg: &Cfg, r: Option<T>)
-    where T: ::std::io::BufRead 
+where
+    T: ::std::io::BufRead,
 {
     let pass = getpass(r);
     let w = load_wallet(cfg, pass);
@@ -93,7 +95,8 @@ pub fn rund(args: Vec<String>) {
 }
 
 pub fn run<T>(args: Vec<String>, reader: Option<T>)
-    where T: ::std::io::BufRead 
+where
+    T: ::std::io::BufRead,
 {
     let program = args[0].clone();
     let mut cfg = Cfg {
@@ -164,10 +167,14 @@ mod tests {
     }
     #[test]
     fn list_test() {
-        let args = vec!["loom".into(),
-                        "-W".into(), "testdata/loom.wallet".into(),
-                        "-H".into(), "127.0.0.1:12345".into(),
-                        "-l".into()];
+        let args = vec![
+            "loom".into(),
+            "-W".into(),
+            "testdata/loom.wallet".into(),
+            "-H".into(),
+            "127.0.0.1:12345".into(),
+            "-l".into(),
+        ];
         client::run(args, pass());
     }
 }
