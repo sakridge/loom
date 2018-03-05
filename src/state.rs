@@ -227,10 +227,9 @@ mod tests {
         let reader = Arc::new(Reader::new(13002).expect("reader"));
         let mut o = OTP::new();
         let a_reader = reader.clone();
-        assert_eq!(Ok(()), o.source(Port::Reader, move |p| a_reader.run(p)));
+        assert!(o.source(Port::Reader, move |p| a_reader.run(p)).is_ok());
         let b_reader = reader.clone();
-        assert_eq!(
-            Ok(()),
+        assert_matches!(
             o.listen(Port::Recycle, move |p, d| {
                 let d_ = d.clone();
                 match d {
@@ -244,7 +243,8 @@ mod tests {
                 }
                 b_reader.recycle(d_);
                 Ok(())
-            })
+            }),
+            Ok(())
         );
         let list = [
             data::Account {
@@ -255,9 +255,9 @@ mod tests {
         let state = Arc::new(Mutex::new(State::from_list(&list).expect("from list")));
 
         let a_state = state.clone();
-        assert_eq!(
-            Ok(()),
-            o.listen(Port::State, move |p, d| a_state.lock().unwrap().run(p, d))
+        assert_matches!(
+            o.listen(Port::State, move |p, d| a_state.lock().unwrap().run(p, d)),
+            Ok(())
         );
         let cli: UdpSocket = net::socket().expect("socket");
         cli.connect("127.0.0.1:13002").expect("client");
@@ -267,7 +267,7 @@ mod tests {
         while num < 64 {
             net::write(&cli, &msgs, &mut num).expect("send msgs");
         }
-        assert_eq!(Ok(()), o.join());
+        assert!(o.join().is_ok());
     }
 
     #[test]
@@ -277,10 +277,9 @@ mod tests {
         let reader = Arc::new(Reader::new(13004).expect("reader"));
         let mut o = OTP::new();
         let a_reader = reader.clone();
-        assert_eq!(Ok(()), o.source(Port::Reader, move |p| a_reader.run(p)));
+        assert!(o.source(Port::Reader, move |p| a_reader.run(p)).is_ok());
         let b_reader = reader.clone();
-        assert_eq!(
-            Ok(()),
+        assert!(
             o.listen(Port::Recycle, move |p, d| {
                 let d_ = d.clone();
                 match d {
@@ -294,10 +293,10 @@ mod tests {
                 }
                 b_reader.recycle(d_);
                 Ok(())
-            })
+            }).is_ok()
         );
         let sender = Arc::new(Sender::new().expect("sender"));
-        assert_eq!(Ok(()), o.listen(Port::Sender, move |_p, d| sender.run(d)));
+        assert!(o.listen(Port::Sender, move |_p, d| sender.run(d)).is_ok());
 
         let mut msgs = [data::Message::default(); NUM];
         init_msgs(&mut msgs);
@@ -309,9 +308,8 @@ mod tests {
             .collect();
         let state = Arc::new(Mutex::new(State::from_list(&list).expect("from list")));
         let a_state = state.clone();
-        assert_eq!(
-            Ok(()),
-            o.listen(Port::State, move |p, d| a_state.lock().unwrap().run(p, d))
+        assert!(
+            o.listen(Port::State, move |p, d| a_state.lock().unwrap().run(p, d)).is_ok()
         );
         let cli: UdpSocket = net::bindall(13003).expect("socket");
         let dst = "127.0.0.1:13004".parse().expect("parse address");
@@ -333,7 +331,7 @@ mod tests {
             assert_eq!(rmsgs.data[0].0, 1);
             assert_eq!(rmsgs.msgs[0].pld.get_bal().amount, 1);
         }
-        assert_eq!(Ok(()), o.join());
+        assert!(o.join().is_ok());
     }
 }
 

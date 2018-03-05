@@ -100,23 +100,22 @@ mod test {
         let reader = Arc::new(Reader::new(12001).expect("reader"));
         let mut o = OTP::new();
         let a_reader = reader.clone();
-        assert_eq!(
-            Ok(()),
-            o.source(Port::Reader, move |ports| a_reader.run(ports))
+        assert_matches!(
+            o.source(Port::Reader, move |ports| a_reader.run(ports)),
+            Ok(())
         );
         let b_reader = reader.clone();
-        assert_eq!(
-            Ok(()),
+        assert_matches!(
             o.listen(Port::Recycle, move |_ports, data| {
                 b_reader.recycle(data);
                 Ok(())
-            })
+            }),
+            Ok(())
         );
 
         let rvs = Arc::new(Mutex::new(0usize));
         let a_rvs = rvs.clone();
-        assert_eq!(
-            Ok(()),
+        assert_matches!(
             o.listen(Port::State, move |ports, data| match data {
                 Data::SharedMessages(msgs) => {
                     let mut v = a_rvs.lock().unwrap();
@@ -125,7 +124,8 @@ mod test {
                     Ok(())
                 }
                 _ => Ok(()),
-            })
+            }),
+            Ok(())
         );
 
         let cli: UdpSocket = net::socket().expect("socket");
@@ -144,7 +144,7 @@ mod test {
             trace!("write {:?}", num);
         }
         sleep(Duration::new(1, 0));
-        assert_eq!(Ok(()), o.shutdown());
+        assert!(o.shutdown().is_ok());
         assert_eq!(*rvs.lock().unwrap(), 64);
     }
 }

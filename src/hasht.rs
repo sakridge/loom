@@ -68,7 +68,7 @@ mod test {
     fn hash_test() {
         let v = vec![0usize; 0];
         let r = UsizeT::find(&v, &1usize);
-        assert_eq!(r.unwrap_err(), Error::NoSpace);
+        assert_matches!(r.unwrap_err(), Error::NoSpace);
     }
     #[test]
     fn hash_test2() {
@@ -82,7 +82,7 @@ mod test {
         let a = UsizeT::find(&v, &1usize).expect("find 1");
         v[a] = 1;
         let b = UsizeT::find(&v, &2usize);
-        assert_eq!(b.unwrap_err(), Error::NoSpace);
+        assert_matches!(b.unwrap_err(), Error::NoSpace);
     }
     #[test]
     fn hash_test4() {
@@ -94,11 +94,8 @@ mod test {
         v[b] = 2;
         assert_eq!(UsizeT::find(&v, &1usize).unwrap(), a);
         assert_eq!(UsizeT::find(&v, &2usize).unwrap(), b);
-        assert_eq!(UsizeT::find(&v, &3usize).unwrap_err(), Error::NoSpace);
-        assert_eq!(
-            UsizeT::find(&v, &usize::max_value()).unwrap_err(),
-            Error::NoSpace
-        );
+        assert_matches!(UsizeT::find(&v, &3usize).unwrap_err(), Error::NoSpace);
+        assert_matches!(UsizeT::find(&v, &usize::max_value()).unwrap_err(), Error::NoSpace);
     }
     #[test]
     fn hash_migrate_test() {

@@ -168,48 +168,48 @@ mod test {
     #[test]
     fn test_init() {
         let mut o = OTP::new();
-        assert_eq!(Ok(()), o.shutdown());
+        assert_matches!(o.shutdown(), Ok(()));
     }
     #[test]
     fn test_join() {
         let mut o = OTP::new();
-        assert_eq!(
-            Ok(()),
-            o.source(Reader, move |ports| OTP::send(ports, Main, Signal))
+        assert_matches!(
+            o.source(Reader, move |ports| OTP::send(ports, Main, Signal)),
+            Ok(())
         );
-        assert_eq!(Ok(()), o.join());
+        assert_matches!(o.join(), Ok(()));
     }
     #[test]
     fn test_source() {
         let mut o = OTP::new();
-        assert_eq!(
-            Ok(()),
-            o.source(Reader, move |ports| OTP::send(ports, Main, Signal))
+        assert_matches!(
+            o.source(Reader, move |ports| OTP::send(ports, Main, Signal)),
+            Ok(())
         );
         assert!(o.source(Reader, move |_ports| Ok(())).is_err());
         assert!(o.listen(Reader, move |_ports, _data| Ok(())).is_err());
-        assert_eq!(Ok(()), o.join());
+        assert_matches!(o.join(), Ok(()));
     }
     #[test]
     fn test_listen() {
         let mut o = OTP::new();
         let val = Arc::new(Mutex::new(false));
-        assert_eq!(
-            Ok(()),
-            o.source(Reader, move |ports| OTP::send(ports, State, Signal))
+        assert_matches!(
+            o.source(Reader, move |ports| OTP::send(ports, State, Signal)),
+            Ok(())
         );
         let c_val = val.clone();
-        assert_eq!(
-            Ok(()),
+        assert_matches!(
             o.listen(State, move |ports, data| match data {
                 Signal => {
                     *c_val.lock().unwrap() = true;
                     OTP::send(ports, Main, Signal)
                 }
                 _ => Ok(()),
-            })
+            }),
+            Ok(())
         );
-        assert_eq!(Ok(()), o.join());
+        assert_matches!(o.join(), Ok(()));
         assert_eq!(*val.lock().unwrap(), true);
     }
 
