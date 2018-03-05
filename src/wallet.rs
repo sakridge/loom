@@ -186,11 +186,13 @@ mod test {
         let mut w = Wallet::new();
         let kp1 = Wallet::new_keypair();
         w.add_keypair(kp1);
+        let f1 = w.find(to32b(kp1.1)).expect("find k1");
         let kp2 = Wallet::new_keypair();
         w.add_keypair(kp2);
-        let f1 = w.find(to32b(kp1.1)).expect("find k1");
         let f2 = w.find(to32b(kp2.1)).expect("find k2");
         assert!(f1 != f2);
+        assert_eq!(kp2.1, w.pubkeys[f2]);
+        assert_eq!(kp2.0, w.privkeys[f2]);
     }
     #[test]
     fn test_bad_file() {

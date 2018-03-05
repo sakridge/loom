@@ -141,7 +141,7 @@ where
         let from = matches.opt_str("f").expect("missing source address");
         let astr = matches.opt_str("a").expect("missing ammount");
         let a = astr.parse().expect("ammount is not a number");
-        transfer(&cfg, reader, to, from, a).expect("transfer");
+        transfer(&cfg, reader, from, to, a).expect("transfer");
         return;
     } else if matches.opt_present("b") {
         let to = matches.opt_str("t").expect("missing destination address");
