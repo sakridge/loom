@@ -365,7 +365,7 @@ mod bench {
             assert_eq!(s.accounts[fp].from, from);
             s.execute(&p, &mut msgs).expect("execute");
             //init_msgs will send itself money every time it overlows i
-            assert_eq!(s.accounts[fp].balance, (NUM/256) as u64);
+            assert_eq!(s.accounts[fp].balance, (NUM / 256) as u64);
         })
     }
 }
