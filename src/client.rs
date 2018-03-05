@@ -190,7 +190,8 @@ mod tests {
             "-H".into(),
             "127.0.0.1:12345".into(),
             "-b".into(),
-            "-t".into(), addr
+            "-t".into(),
+            addr,
         ];
         client::run(args, pass());
     }
@@ -217,9 +218,12 @@ mod tests {
             "-H".into(),
             "127.0.0.1:14345".into(),
             "-x".into(),
-            "-f".into(), from,
-            "-t".into(), to,
-            "-a".into(), "100".into(),
+            "-f".into(),
+            from,
+            "-t".into(),
+            to,
+            "-a".into(),
+            "100".into(),
         ];
         client::run(args, pass());
         t.shutdown().expect("success");
