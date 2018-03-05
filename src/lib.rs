@@ -6,6 +6,7 @@ extern crate env_logger;
 extern crate getopts;
 #[macro_use]
 extern crate log;
+extern crate nix;
 extern crate rand;
 extern crate rpassword;
 extern crate serde;

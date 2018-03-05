@@ -5,6 +5,7 @@ use data_encoding::BASE32HEX;
 use wallet::{EncryptedWallet, Wallet, to32b};
 use net;
 use result::Result;
+use data;
 
 struct Cfg {
     host: String,
@@ -74,7 +75,30 @@ where
     Ok(())
 }
 
-fn balance(_addr: String) {}
+fn balance<T>(cfg: &Cfg, r: Option<T>, from: String, addr: String) -> Result<()>
+where
+    T: ::std::io::BufRead,
+{
+    let pass = getpass(r);
+    let w = load_wallet(cfg, pass);
+    let fpk = BASE32HEX.decode(from.as_bytes()).expect("from key");
+    let tpk = BASE32HEX.decode(addr.as_bytes()).expect("target key");
+    let kix = w.find(vec_to_array(fpk))?;
+    let msg = w.check_balance(kix, vec_to_array(tpk), 1);
+    let s = net::socket()?;
+    s.connect(cfg.host.clone())?;
+    let mut num = 0;
+    while num < 1 {
+        net::write(&s, &[msg], &mut num)?;
+    }
+    let mut rmsgs = data::Messages::new();
+    rmsgs
+        .with_mut(|m, d| net::read_from(&s, m, d))
+        .expect("read rmsgs");
+    assert_eq!(rmsgs.data[0].0, 1);
+    println!("balance is {:?}", rmsgs.msgs[0].pld.get_bal().amount);
+    Ok(())
+}
 
 fn list<T>(cfg: &Cfg, r: Option<T>)
 where
@@ -144,8 +168,9 @@ where
         transfer(&cfg, reader, from, to, a).expect("transfer");
         return;
     } else if matches.opt_present("b") {
-        let to = matches.opt_str("t").expect("missing destination address");
-        balance(to);
+        let from = matches.opt_str("f").expect("missing source key address");
+        let to = matches.opt_str("t").expect("missing target address");
+        balance(&cfg, reader, from, to).expect("transfer");
         return;
     } else if matches.opt_present("l") {
         list(&cfg, reader);
@@ -187,8 +212,6 @@ mod tests {
             "loom".into(),
             "-W".into(),
             "testdata/loom.wallet".into(),
-            "-H".into(),
-            "127.0.0.1:12345".into(),
             "-l".into(),
         ];
         client::run(args, pass());
@@ -196,18 +219,30 @@ mod tests {
 
     #[test]
     fn balance_test() {
+        let args = vec![
+            "loomd".into(),
+            "-l".into(),
+            "14346".into(),
+            "-t".into(),
+            "testdata/test_accounts.json".into(),
+        ];
+        let mut t = daemon::run(args).expect("daemon load");
+
         let addr: String = "UFC5KNCKS6KMC7VDIBVJ4R3IIJ0RLQL8VSVOAO4GQSMAV1QIPFP0====".into();
         let args = vec![
             "loom".into(),
             "-W".into(),
             "testdata/loom.wallet".into(),
             "-H".into(),
-            "127.0.0.1:12345".into(),
+            "127.0.0.1:14346".into(),
             "-b".into(),
             "-t".into(),
+            addr.clone(),
+            "-f".into(),
             addr,
         ];
         client::run(args, pass());
+        t.shutdown().expect("success");
     }
 
     #[test]

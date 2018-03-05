@@ -11,7 +11,6 @@ use std::mem::transmute;
 use getopts::Options;
 use std::string::String;
 use otp::{Port, OTP};
-use sender::Sender;
 
 fn print_usage(program: &str, opts: Options) {
     let brief = format!("Usage: {} FILE [options]", program);
@@ -24,6 +23,7 @@ fn loomd(testnet: Option<String>, port: u16) -> Result<OTP> {
         None => Arc::new(Mutex::new(state::State::new(1024))),
     };
     let reader = Reader::new(port).and_then(|x| Ok(Arc::new(x)))?;
+    let sender = reader.sender()?;
     let mut o = OTP::new();
     let a_reader = reader.clone();
     o.source(Port::Reader, move |p| a_reader.run(p))?;
@@ -32,7 +32,6 @@ fn loomd(testnet: Option<String>, port: u16) -> Result<OTP> {
         b_reader.recycle(d);
         Ok(())
     })?;
-    let sender = Sender::new().and_then(|x| Ok(Arc::new(x)))?;
     o.listen(Port::Sender, move |_p, d| sender.run(d))?;
     let a_state = state.clone();
     o.listen(Port::State, move |p, d| a_state.lock().unwrap().run(p, d))?;
@@ -99,7 +98,7 @@ mod tests {
 
     fn check_balance(s: &UdpSocket, w: &wallet::Wallet, to: [u8; 32]) -> Result<u64> {
         let mut num = 0;
-        let addr = "127.0.0.1:24567".parse().expect("parse");
+        let addr = "127.0.0.1:24569".parse().expect("parse");
         while num < 1 {
             let msg = w.check_balance(0, to, 1);
             net::send_to(&s, &[msg], &mut num, addr)?;
@@ -125,7 +124,7 @@ mod tests {
         let args = vec![
             "loomd".into(),
             "-l".into(),
-            "24567".into(),
+            "24569".into(),
             "-t".into(),
             "testdata/test_accounts.json".into(),
         ];
@@ -136,7 +135,7 @@ mod tests {
         let kp = wallet::Wallet::new_keypair();
         let to = from_pk(kp.1);
         let s = net::socket().expect("socket");
-        let addr = "127.0.0.1:24567".parse().expect("parse");
+        let addr = "127.0.0.1:24569".parse().expect("parse");
         let mut num = 0;
         while num < 1 {
             let msg = w.tx(0, to, 1000, 1);
