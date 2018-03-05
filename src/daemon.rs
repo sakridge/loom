@@ -98,7 +98,7 @@ mod tests {
 
     fn check_balance(s: &UdpSocket, w: &wallet::Wallet, to: [u8; 32]) -> Result<u64> {
         let mut num = 0;
-        let addr = "127.0.0.1:24567".parse().expect("parse");
+        let addr = "127.0.0.1:24569".parse().expect("parse");
         while num < 1 {
             let msg = w.check_balance(0, to, 1);
             net::send_to(&s, &[msg], &mut num, addr)?;
@@ -124,7 +124,7 @@ mod tests {
         let args = vec![
             "loomd".into(),
             "-l".into(),
-            "24567".into(),
+            "24569".into(),
             "-t".into(),
             "testdata/test_accounts.json".into(),
         ];
@@ -135,7 +135,7 @@ mod tests {
         let kp = wallet::Wallet::new_keypair();
         let to = from_pk(kp.1);
         let s = net::socket().expect("socket");
-        let addr = "127.0.0.1:24567".parse().expect("parse");
+        let addr = "127.0.0.1:24569".parse().expect("parse");
         let mut num = 0;
         while num < 1 {
             let msg = w.tx(0, to, 1000, 1);
