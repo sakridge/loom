@@ -70,6 +70,7 @@ mod tests {
     use std::thread;
     use std::io;
     use std::io::Write;
+    use serde_json;
 
     fn addr_parse_error() -> Result<SocketAddr> {
         let r = "12fdfasfsafsadfs".parse()?;
@@ -81,7 +82,7 @@ mod tests {
         return Ok(());
     }
     fn json_error() -> Result<()> {
-        let r = serde_json::from_slice(&"=342{;;;;:}")?;
+        let r = serde_json::from_slice("=342{;;;;:}".as_bytes())?;
         return Ok(r);
     }
 
@@ -101,7 +102,11 @@ mod tests {
         write!(io::sink(), "{:?}", Error::from(RecvError {})).unwrap();
         write!(io::sink(), "{:?}", join_error()).unwrap();
         write!(io::sink(), "{:?}", json_error()).unwrap();
-        write!(io::sink(), "{:?}", Error::from(io::Error::new(io::ErrorKind::NotFound, "hi"))).unwrap();
+        write!(
+            io::sink(),
+            "{:?}",
+            Error::from(io::Error::new(io::ErrorKind::NotFound, "hi"))
+        ).unwrap();
     }
 
 }
