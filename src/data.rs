@@ -13,7 +13,7 @@ pub struct Transaction {
     pub amount: u64,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 #[repr(C)]
 pub struct GetBalance {
     pub key: [u8; 32],
@@ -191,3 +191,17 @@ impl Messages {
 }
 
 pub type SharedMessages = Arc<RwLock<Messages>>;
+
+#[cfg(test)]
+mod tests {
+    use data;
+    #[test]
+    fn data_test() {
+        let _ = data::Transaction::default().clone();
+        let _ = data::GetBalance::default().clone();
+        let _ = data::MessageData::default().clone();
+        let _ = data::Kind::default().clone();
+        let _ = data::State::default().clone();
+        let _ = data::Messages::new();
+    }
+}

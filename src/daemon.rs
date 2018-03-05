@@ -39,7 +39,7 @@ fn loomd(testnet: Option<String>, port: u16) -> Result<OTP> {
     return Ok(o);
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize)]
 struct TestAccount {
     pub pubkey: [u64; 4],
     pub balance: u32,
@@ -146,6 +146,12 @@ mod tests {
         assert_eq!(bto, 1000);
         let bfrom = check_balance(&s, &w, from).expect("check bal from");
         assert_eq!(bfrom, 1000000000 - 1003);
+        t.shutdown().expect("success");
+    }
+    #[test]
+    fn realnet_test() {
+        let args = vec!["loomd".into(), "-l".into(), "24568".into()];
+        let mut t = daemon::run(args).expect("daemon load");
         t.shutdown().expect("success");
     }
 }

@@ -169,6 +169,8 @@ mod test {
     use wallet::EncryptedWallet;
     use std::fs::remove_file;
     use result::Error;
+    use std::io;
+    use std::io::Write;
 
     #[test]
     fn test_roundtrip() {
@@ -188,6 +190,7 @@ mod test {
         w.add_keypair(kp1);
         let f1 = w.find(to32b(kp1.1)).expect("find k1");
         let kp2 = Wallet::new_keypair();
+        assert_matches!(w.find(to32b(kp2.1)), Err(Error::PubKeyNotFound));
         w.add_keypair(kp2);
         let f2 = w.find(to32b(kp2.1)).expect("find k2");
         assert!(f1 != f2);
@@ -208,6 +211,7 @@ mod test {
         let pass = "foobar".as_bytes();
         let ew = w.encrypt(pass).expect("encrypted");
         ew.to_file("TESTWALLET").expect("to_file");
+        write!(io::sink(), "{:?}", ew).expect("force debug trait");
         let new = EncryptedWallet::from_file("TESTWALLET").expect("from_file");
         let nw = new.decrypt(pass).expect("decrypted");
         remove_file("TESTWALLET").expect("remove");

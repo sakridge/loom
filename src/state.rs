@@ -119,13 +119,6 @@ impl State {
             &mut |msgs: &mut Vec<data::Message>, data: &mut Vec<(usize, SocketAddr)>| {
                 let mut total = 0;
                 for &(z, a) in data.iter() {
-                    trace!(
-                        "total msgs {:?} {:?} {:?} {:?}",
-                        total,
-                        z,
-                        data.len(),
-                        msgs.len()
-                    );
                     for m in msgs[total..total + z].iter_mut() {
                         let len = self.accounts.len();
                         if self.used * 4 > len * 3 {
@@ -355,16 +348,24 @@ mod bench {
     }
     #[bench]
     fn state_bench(b: &mut Bencher) {
-        const NUM: usize = 128usize;
+        const NUM: usize = 1024usize;
         let mut s: State = State::new(NUM * 2);
-        let mut msgs = [data::Message::default(); NUM];
-        init_msgs(&mut msgs);
-        let fp = data::AccountT::find(&s.accounts, &[255u8; 32]).expect("f");
-        s.accounts[fp].from = [255u8; 32];
+        let mut msgs = data::Messages::new();
+        msgs.with_mut(|m, d| {
+            init_msgs(m);
+            d[0].0 = NUM;
+            Ok(())
+        }).expect("init_msgs");
+        let from = [255u8; 32];
+        let fp = data::AccountT::find(&s.accounts, &from).expect("f");
+        s.accounts[fp].from = from;
+        let p = vec![];
         b.iter(|| {
             s.accounts[fp].balance = NUM as u64 * 2u64;
-            s.execute([], &mut msgs).expect("execute");
-            assert_eq!(s.accounts[fp].balance, 0);
+            assert_eq!(s.accounts[fp].from, from);
+            s.execute(&p, &mut msgs).expect("execute");
+            //init_msgs will send itself money every time it overlows i
+            assert_eq!(s.accounts[fp].balance, (NUM / 256) as u64);
         })
     }
 }
