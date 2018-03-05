@@ -19,7 +19,7 @@ impl Reader {
         //TODO(anatoly): we need to dup this so we can properly respond to
         //connected udp sockets.  need to find a crate that has win32 and
         //unix dup
-        let sock = unsafe {UdpSocket::from_raw_fd(self.sock.as_raw_fd()) };
+        let sock = unsafe { UdpSocket::from_raw_fd(self.sock.as_raw_fd()) };
         return Sender::new(sock);
     }
     pub fn new(port: u16) -> Result<Reader> {

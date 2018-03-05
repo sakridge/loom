@@ -100,7 +100,6 @@ where
     Ok(())
 }
 
-
 fn list<T>(cfg: &Cfg, r: Option<T>)
 where
     T: ::std::io::BufRead,
