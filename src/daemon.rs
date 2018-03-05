@@ -23,7 +23,7 @@ fn loomd(testnet: Option<String>, port: u16) -> Result<OTP> {
         None => Arc::new(Mutex::new(state::State::new(1024))),
     };
     let reader = Reader::new(port).and_then(|x| Ok(Arc::new(x)))?;
-    let sender = reader.sender();
+    let sender = reader.sender()?;
     let mut o = OTP::new();
     let a_reader = reader.clone();
     o.source(Port::Reader, move |p| a_reader.run(p))?;

@@ -4,6 +4,7 @@ use core;
 use crypto;
 use crypto::symmetriccipher::SymmetricCipherError;
 use std::any::Any;
+use nix;
 
 #[derive(Debug)]
 pub enum Error {
@@ -13,6 +14,7 @@ pub enum Error {
     AddrParse(std::net::AddrParseError),
     JoinError(Box<Any + Send + 'static>),
     RecvError(std::sync::mpsc::RecvError),
+    NIX(nix::Error),
     SendError,
     OTPError,
     NoneError,
@@ -59,6 +61,12 @@ impl core::convert::From<std::net::AddrParseError> for Error {
         Error::AddrParse(e)
     }
 }
+impl core::convert::From<nix::Error> for Error {
+    fn from(e: nix::Error) -> Error {
+        Error::NIX(e)
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -71,6 +79,7 @@ mod tests {
     use std::io;
     use std::io::Write;
     use serde_json;
+    use nix;
 
     fn addr_parse_error() -> Result<SocketAddr> {
         let r = "12fdfasfsafsadfs".parse()?;
@@ -94,6 +103,7 @@ mod tests {
         assert_matches!(join_error(), Err(Error::JoinError(_)));
         let ioe = io::Error::new(io::ErrorKind::NotFound, "hi");
         assert_matches!(Error::from(ioe), Error::IO(_));
+        assert_matches!(Error::from(nix::Error::InvalidPath), Error::NIX(_));
     }
     #[test]
     fn fmt_test() {
@@ -102,6 +112,7 @@ mod tests {
         write!(io::sink(), "{:?}", Error::from(RecvError {})).unwrap();
         write!(io::sink(), "{:?}", join_error()).unwrap();
         write!(io::sink(), "{:?}", json_error()).unwrap();
+        write!(io::sink(), "{:?}", Error::from(nix::Error::InvalidPath)).unwrap();
         write!(
             io::sink(),
             "{:?}",

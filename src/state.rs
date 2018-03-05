@@ -269,7 +269,7 @@ mod tests {
         let reader = Arc::new(Reader::new(13004).expect("reader"));
         let mut o = OTP::new();
         let a_reader = reader.clone();
-        let sender = reader.sender();
+        let sender = reader.sender().expect("sender");
         assert!(o.source(Port::Reader, move |p| a_reader.run(p)).is_ok());
         let b_reader = reader.clone();
         assert!(o.listen(Port::Recycle, move |p, d| {

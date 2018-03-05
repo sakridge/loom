@@ -9,18 +9,23 @@ use otp::{Data, Port, Ports, OTP};
 use sender::Sender;
 use std::os::unix::io::FromRawFd;
 use std::os::unix::io::AsRawFd;
+use nix::unistd::dup;
 
 pub struct Reader {
     lock: Mutex<Vec<data::SharedMessages>>,
     sock: UdpSocket,
 }
 impl Reader {
-    pub fn sender(&self) -> Sender {
+    pub fn sender(&self) -> Result<Sender> {
         //TODO(anatoly): we need to dup this so we can properly respond to
         //connected udp sockets.  need to find a crate that has win32 and
         //unix dup
-        let sock = unsafe { UdpSocket::from_raw_fd(self.sock.as_raw_fd()) };
-        return Sender::new(sock);
+        let sock = unsafe { 
+            let fd = self.sock.as_raw_fd();
+            let nfd = dup(fd)?;
+            UdpSocket::from_raw_fd(nfd)
+        };
+        return Ok(Sender::new(sock));
     }
     pub fn new(port: u16) -> Result<Reader> {
         let ipv4 = Ipv4Addr::new(0, 0, 0, 0);
