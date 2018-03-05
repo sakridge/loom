@@ -69,3 +69,22 @@ impl core::convert::From<std::net::AddrParseError> for Error {
         Error::AddrParse(e)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use result::Result;
+    use result::Error;
+    use std::net::SocketAddr;
+    use crypto::symmetriccipher::SymmetricCipherError::InvalidPadding;
+
+
+    fn addr_parse_error() -> Result<()> {
+        let _r1: SocketAddr = "12fdfasfsafsadfs".parse()?;
+        return Ok(());
+    }
+    #[test]
+    fn from_test() {
+        assert_matches!(addr_parse_error(), Err(Error::AddrParse(_)));
+        assert_matches!(Error::from(InvalidPadding), Error::AES(_));
+    }
+}
