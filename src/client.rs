@@ -158,6 +158,7 @@ mod tests {
     use daemon;
     use std::io::Cursor;
     use data_encoding::BASE32HEX;
+    use std::fs::remove_file;
 
     #[test]
     fn help_test() {
@@ -167,6 +168,19 @@ mod tests {
     fn pass() -> Option<Cursor<&'static [u8]>> {
         Some(Cursor::new(&b"foobar\n"[..]))
     }
+
+    #[test]
+    fn add_test() {
+        let args = vec![
+            "loom".into(),
+            "-W".into(),
+            "TESTWALLET2".into(),
+            "-c".into(),
+        ];
+        client::run(args, pass());
+        remove_file("TESTWALLET2").expect("remove");
+    }
+
     #[test]
     fn list_test() {
         let args = vec![
