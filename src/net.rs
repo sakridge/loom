@@ -47,7 +47,7 @@ pub fn read_from(
         match socket.recv_from(buf) {
             Err(_) if ix > 0 => {
                 socket.set_nonblocking(false)?;
-                return Ok(ix);
+                break;
             }
             Err(e) => {
                 info!("recv_from err {:?}", e);
@@ -73,7 +73,7 @@ pub fn read(socket: &UdpSocket, messages: &mut [Message], num: &mut usize) -> Re
     while *num < max {
         let p = &mut messages[*num] as *mut Message;
         if (max - *num) * sz < MAX_PACKET {
-            return Ok(());
+            break;
         }
         assert!(cfg!(target_endian = "little"));
         let buf = unsafe { transmute(from_raw_parts(p as *mut u8, MAX_PACKET)) };
@@ -116,18 +116,6 @@ pub fn send_to(
     Ok(())
 }
 
-pub fn sendtov4(
-    socket: &UdpSocket,
-    msgs: &[Message],
-    num: &mut usize,
-    a: [u8; 4],
-    port: u16,
-) -> Result<()> {
-    let ipv4 = Ipv4Addr::new(a[0], a[1], a[2], a[3]);
-    let addr = SocketAddr::new(IpAddr::V4(ipv4), port);
-    send_to(socket, msgs, num, addr)
-}
-
 #[test]
 fn read_write_test() {
     let sz = size_of::<Message>();
@@ -139,7 +127,8 @@ fn read_write_test() {
     let mut num = 0;
     write(&cli, &m[0..max], &mut num).expect("write");
     assert!(num == max);
-
+    num = 0;
     read(&srv, &mut m, &mut num).expect("read");
     assert!(num == max);
+    assert!(num > 0);
 }

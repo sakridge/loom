@@ -18,7 +18,7 @@ use aes;
 
 type Keypair = ([u64; 8], [u64; 4]);
 
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct EncryptedWallet {
     pub iv: [u8; aes::KEYSIZE],
     pub pubkeys: Vec<[u64; 4]>,
