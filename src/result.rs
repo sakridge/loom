@@ -80,6 +80,10 @@ mod tests {
         thread::spawn(|| panic!("hi")).join()?;
         return Ok(());
     }
+    fn json_error() -> Result<()> {
+        let r = serde_json::from_slice(&"=342{;;;;:}")?;
+        return Ok(r);
+    }
 
     #[test]
     fn from_test() {
@@ -96,6 +100,7 @@ mod tests {
         write!(io::sink(), "{:?}", Error::from(InvalidPadding)).unwrap();
         write!(io::sink(), "{:?}", Error::from(RecvError {})).unwrap();
         write!(io::sink(), "{:?}", join_error()).unwrap();
+        write!(io::sink(), "{:?}", json_error()).unwrap();
         write!(io::sink(), "{:?}", Error::from(io::Error::new(io::ErrorKind::NotFound, "hi"))).unwrap();
     }
 
