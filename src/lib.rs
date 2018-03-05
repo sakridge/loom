@@ -12,8 +12,6 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
-#[macro_use]
-extern crate matches;
 
 pub mod net;
 pub mod data;
@@ -27,3 +25,7 @@ pub mod aes;
 pub mod daemon;
 pub mod sender;
 pub mod client;
+
+#[cfg(test)]
+#[macro_use]
+extern crate matches;

@@ -168,6 +168,7 @@ mod test {
     use wallet::to32b;
     use wallet::EncryptedWallet;
     use std::fs::remove_file;
+    use result::Error;
 
     #[test]
     fn test_roundtrip() {
@@ -191,7 +192,11 @@ mod test {
         let f2 = w.find(to32b(kp2.1)).expect("find k2");
         assert!(f1 != f2);
     }
-
+    #[test]
+    fn test_bad_file() {
+        let e = EncryptedWallet::from_file("testdata/test_accounts.json");
+        assert_matches!(e, Err(Error::JSON(_)));
+    }
     #[test]
     fn test_file() {
         let mut w = Wallet::new();
