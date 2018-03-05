@@ -1,7 +1,7 @@
 use rpassword;
 use getopts::Options;
 use std::string::String;
-use data_encoding::BASE32HEX_NOPAD;
+use data_encoding::BASE32HEX;
 use wallet::{EncryptedWallet, Wallet, to32b};
 use net;
 use result::Result;
@@ -61,8 +61,8 @@ where
 {
     let pass = getpass(r);
     let w = load_wallet(cfg, pass);
-    let fpk = BASE32HEX_NOPAD.decode(from.as_bytes()).expect("from key");
-    let tpk = BASE32HEX_NOPAD.decode(to.as_bytes()).expect("to key");
+    let fpk = BASE32HEX.decode(from.as_bytes()).expect("from key");
+    let tpk = BASE32HEX.decode(to.as_bytes()).expect("to key");
     let kix = w.find(vec_to_array(fpk))?;
     let msg = w.tx(kix, vec_to_array(tpk), amnt, 1);
     let s = net::socket()?;
@@ -84,7 +84,7 @@ where
     let w = load_wallet(cfg, pass);
     println!("wallet has {:?} keys", w.pubkeys.len());
     for k in w.pubkeys {
-        let pretty = BASE32HEX_NOPAD.encode(&to32b(k));
+        let pretty = BASE32HEX.encode(&to32b(k));
         println!("key {:?}", pretty);
     }
 }
@@ -155,7 +155,9 @@ where
 #[cfg(test)]
 mod tests {
     use client;
+    use daemon;
     use std::io::Cursor;
+    use data_encoding::BASE32HEX;
 
     #[test]
     fn help_test() {
@@ -178,16 +180,32 @@ mod tests {
         client::run(args, pass());
     }
     #[test]
-    fn list_tx() {
+    fn tx_test() {
+        let args = vec![
+            "loomd".into(),
+            "-l".into(),
+            "14345".into(),
+            "-t".into(),
+            "testdata/test_accounts.json".into(),
+        ];
+        let mut t = daemon::run(args).expect("daemon load");
+
+        let from: String = "UFC5KNCKS6KMC7VDIBVJ4R3IIJ0RLQL8VSVOAO4GQSMAV1QIPFP0====".into();
+        assert!(BASE32HEX.decode(from.as_bytes()).is_ok());
+        let to: String = "SFC5KNCKS6KMC7VDIBVJ4R3IIJ0RLQL8VSVOAO4GQSMAV1QIPFP0====".into();
+        assert!(BASE32HEX.decode(to.as_bytes()).is_ok());
         let args = vec![
             "loom".into(),
             "-W".into(),
             "testdata/loom.wallet".into(),
             "-H".into(),
             "127.0.0.1:14345".into(),
-            "-t".into(),
+            "-x".into(),
+            "-f".into(), from,
+            "-t".into(), to,
+            "-a".into(), "100".into(),
         ];
         client::run(args, pass());
+        t.shutdown().expect("success");
     }
-
 }
