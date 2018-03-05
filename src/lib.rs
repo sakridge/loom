@@ -25,3 +25,7 @@ pub mod aes;
 pub mod daemon;
 pub mod sender;
 pub mod client;
+
+#[cfg(test)]
+#[macro_use]
+extern crate matches;
