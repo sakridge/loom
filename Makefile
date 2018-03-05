@@ -3,7 +3,7 @@ export RUST_BACKTRACE=1
 test:
 	cargo test
 
-ci:release help_t testacc_t wallet_t
+ci:release help_t testacc_t wallet_t fmt
 
 release:
 	cargo build --all-targets --release

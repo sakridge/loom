@@ -15,34 +15,6 @@ pub struct Transaction {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct POH {
-    pub hash: [u8; 32],
-    pub counter: u64,
-}
-
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Signature {
-    pub data: [u8; 64],
-}
-
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct Subscriber {
-    pub key: [u8; 32],
-    pub addr: [u8; 4],
-    pub port: u16,
-}
-
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct GetLedger {
-    pub start: u64,
-    pub num: u64,
-}
-
-#[derive(Copy, Clone)]
-#[repr(C)]
 pub struct GetBalance {
     pub key: [u8; 32],
     pub amount: u64,
@@ -52,9 +24,6 @@ pub struct GetBalance {
 #[repr(C)]
 pub union MessageData {
     pub tx: Transaction,
-    pub poh: POH,
-    pub sub: Subscriber,
-    pub get: GetLedger,
     pub bal: GetBalance,
 }
 
@@ -71,9 +40,6 @@ impl Default for MessageData {
 pub enum Kind {
     Invalid,
     Transaction,
-    Signature,
-    Subscribe,
-    GetLedger,
     GetBalance,
 }
 
@@ -135,18 +101,6 @@ impl Payload {
         assert_eq!(self.kind, Kind::Transaction);
         unsafe { &mut self.data.tx }
     }
-    pub fn get_sub(&self) -> &Subscriber {
-        assert_eq!(self.kind, Kind::Subscribe);
-        unsafe { &self.data.sub }
-    }
-    pub fn get_poh(&self) -> &POH {
-        assert_eq!(self.kind, Kind::Signature);
-        unsafe { &self.data.poh }
-    }
-    pub fn get_get(&self) -> &GetLedger {
-        assert_eq!(self.kind, Kind::GetLedger);
-        unsafe { &self.data.get }
-    }
     pub fn get_bal(&self) -> &GetBalance {
         assert_eq!(self.kind, Kind::GetBalance);
         unsafe { &self.data.bal }
@@ -205,7 +159,6 @@ impl Val<[u8; 32]> for Account {
 }
 pub type AccountT = HashT<[u8; 32], Account>;
 
-#[derive(Clone)]
 pub struct Messages {
     pub msgs: Vec<Message>,
     pub data: Vec<(usize, SocketAddr)>,
