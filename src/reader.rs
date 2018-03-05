@@ -6,12 +6,22 @@ use std::time::Duration;
 use data;
 use net;
 use otp::{Data, Port, Ports, OTP};
+use sender::Sender;
+use std::os::unix::io::FromRawFd;
+use std::os::unix::io::AsRawFd;
 
 pub struct Reader {
     lock: Mutex<Vec<data::SharedMessages>>,
     sock: UdpSocket,
 }
 impl Reader {
+    pub fn sender(&self) -> Sender {
+        //TODO(anatoly): we need to dup this so we can properly respond to
+        //connected udp sockets.  need to find a crate that has win32 and
+        //unix dup
+        let sock = unsafe {UdpSocket::from_raw_fd(self.sock.as_raw_fd()) };
+        return Sender::new(sock);
+    }
     pub fn new(port: u16) -> Result<Reader> {
         let ipv4 = Ipv4Addr::new(0, 0, 0, 0);
         let addr = SocketAddr::new(IpAddr::V4(ipv4), port);

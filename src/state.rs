@@ -177,7 +177,6 @@ mod tests {
     use otp::Port;
     use otp::Data::{SharedMessages, Signal};
     use env_logger;
-    use sender::Sender;
 
     #[test]
     fn state_test() {
@@ -270,6 +269,7 @@ mod tests {
         let reader = Arc::new(Reader::new(13004).expect("reader"));
         let mut o = OTP::new();
         let a_reader = reader.clone();
+        let sender = reader.sender();
         assert!(o.source(Port::Reader, move |p| a_reader.run(p)).is_ok());
         let b_reader = reader.clone();
         assert!(o.listen(Port::Recycle, move |p, d| {
@@ -286,7 +286,6 @@ mod tests {
             b_reader.recycle(d_);
             Ok(())
         }).is_ok());
-        let sender = Arc::new(Sender::new().expect("sender"));
         assert!(o.listen(Port::Sender, move |_p, d| sender.run(d)).is_ok());
 
         let mut msgs = [data::Message::default(); NUM];

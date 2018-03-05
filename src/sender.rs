@@ -7,8 +7,8 @@ pub struct Sender {
     s: UdpSocket,
 }
 impl Sender {
-    pub fn new() -> Result<Sender> {
-        net::socket().and_then(move |x| Ok(Sender { s: x }))
+    pub fn new(sock: UdpSocket) -> Sender {
+        Sender { s: sock }
     }
 
     pub fn run(&self, d: Data) -> Result<()> {
