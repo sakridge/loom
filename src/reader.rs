@@ -169,7 +169,7 @@ mod test {
         let m = data::Message::default();
         let s = net::socket().unwrap();
         loop {
-            {
+            for _ in [0..10].iter() {
                 let ms = &[m];
                 let mut num = 0;
                 while num < 1 {
