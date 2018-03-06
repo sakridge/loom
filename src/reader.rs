@@ -107,6 +107,8 @@ mod test {
     use std::net::UdpSocket;
     use reader::Reader;
     use std::time::Duration;
+    use std::time::SystemTime;
+    use std::thread::spawn;
     use net;
     use data;
 
@@ -162,4 +164,83 @@ mod test {
         assert!(o.shutdown().is_ok());
         assert_eq!(*rvs.lock().unwrap(), 64);
     }
+    fn send_msgs(b: Arc<Mutex<bool>>) {
+        let addr = "127.0.0.1:12002".parse().unwrap();
+        let m = data::Message::default();
+        let s = net::socket().unwrap();
+        loop {
+            {
+                let ms = &[m];
+                let mut num = 0;
+                while num < 1 {
+                    net::send_to(&s, &ms[..], &mut num, addr).unwrap();
+                }
+            }
+            {
+                if *b.lock().unwrap() {
+                    return;
+                }
+            }
+        }
+    }
+    #[test]
+    fn reader_bench() {
+        const NUM_THREADS: usize = 32;
+        let reader = Arc::new(Reader::new(12002).expect("reader"));
+        let mut o = OTP::new();
+        let a_reader = reader.clone();
+        assert_matches!(
+            o.source(Port::Reader, move |ports| a_reader.run(ports)),
+            Ok(())
+        );
+        let b_reader = reader.clone();
+        assert_matches!(
+            o.listen(Port::Recycle, move |_ports, data| {
+                b_reader.recycle(data);
+                Ok(())
+            }),
+            Ok(())
+        );
+        let rvs = Arc::new(Mutex::new(0usize));
+        let a_rvs = rvs.clone();
+        assert_matches!(
+            o.listen(Port::State, move |ports, data|  {
+                let d = data.clone();
+                match data {
+                    Data::SharedMessages(msgs) => {
+                        let mut v = a_rvs.lock().unwrap();
+                        *v += msgs.read().unwrap().msgs.len();
+                        OTP::send(ports, Port::Recycle, d)?;
+                        Ok(())
+                    }
+                    _ => Ok(())
+                }
+            }),
+            Ok(())
+         );
+        let exit = Arc::new(Mutex::new(false));
+        let mut threads = vec![Arc::new(None); NUM_THREADS];
+        for t in threads.iter_mut() {
+            let c_exit = exit.clone();
+            let j = spawn(move || send_msgs(c_exit));
+            *t = Arc::new(Some(j));
+        }
+        let start = SystemTime::now();
+        let start_val = *rvs.lock().unwrap();
+        sleep(Duration::new(5, 0));
+        let elapsed = start.elapsed().unwrap();
+        let end_val = *rvs.lock().unwrap();
+        let time = elapsed.as_secs() * 10000000000 + elapsed.subsec_nanos() as u64;
+        let ftime = (time as f64) / 10000000000f64;
+        let fcount = (end_val - start_val) as f64;
+        println!("performance: {:?}", fcount/ftime);
+        *exit.lock().unwrap() = true;
+        for t in threads.iter() {
+            match Arc::try_unwrap((*t).clone()) {
+                Ok(Some(j)) => j.join().unwrap(),
+                _ => (),
+            };
+        }
+    }
 }
+ 
