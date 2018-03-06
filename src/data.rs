@@ -167,8 +167,8 @@ pub struct Messages {
 impl Messages {
     pub fn new() -> Messages {
         Messages {
-            msgs: vec![Message::default(); 1024],
-            data: vec![Self::def_data(); 1024],
+            msgs: vec![Message::default(); 8*1024],
+            data: vec![Self::def_data(); 8*1024],
         }
     }
     pub fn def_data() -> (usize, SocketAddr) {

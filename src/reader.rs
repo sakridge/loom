@@ -185,7 +185,7 @@ mod test {
     }
     #[test]
     fn reader_bench() {
-        const NUM_THREADS: usize = 32;
+        const NUM_THREADS: usize = 2;
         let reader = Arc::new(Reader::new(12002).expect("reader"));
         let mut o = OTP::new();
         let a_reader = reader.clone();
