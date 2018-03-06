@@ -204,7 +204,7 @@ mod test {
         let rvs = Arc::new(Mutex::new(0usize));
         let a_rvs = rvs.clone();
         assert_matches!(
-            o.listen(Port::State, move |ports, data|  {
+            o.listen(Port::State, move |ports, data| {
                 let d = data.clone();
                 match data {
                     Data::SharedMessages(msgs) => {
@@ -213,11 +213,11 @@ mod test {
                         OTP::send(ports, Port::Recycle, d)?;
                         Ok(())
                     }
-                    _ => Ok(())
+                    _ => Ok(()),
                 }
             }),
             Ok(())
-         );
+        );
         let exit = Arc::new(Mutex::new(false));
         let mut threads = vec![Arc::new(None); NUM_THREADS];
         for t in threads.iter_mut() {
@@ -233,7 +233,7 @@ mod test {
         let time = elapsed.as_secs() * 10000000000 + elapsed.subsec_nanos() as u64;
         let ftime = (time as f64) / 10000000000f64;
         let fcount = (end_val - start_val) as f64;
-        println!("performance: {:?}", fcount/ftime);
+        println!("performance: {:?}", fcount / ftime);
         *exit.lock().unwrap() = true;
         for t in threads.iter() {
             match Arc::try_unwrap((*t).clone()) {
@@ -243,4 +243,3 @@ mod test {
         }
     }
 }
- 
